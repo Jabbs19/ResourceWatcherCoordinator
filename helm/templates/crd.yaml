@@ -1,0 +1,45 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: resourcewatchers.jabbs19.com
+spec:
+  group: jabbs19.com
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        # openAPIV3Schema is the schema for validating custom objects.
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                deployNamespace:
+                  type: string
+                watchNamespace:
+                  type: string
+                k8sApiVersion:
+                  type: string
+                k8sApiResourceName:
+                  type: string
+                annotationFilterBoolean:
+                  type: string
+                annotationFilterString:
+                  type: string  
+                status:
+                  type: string  
+                eventTypeFilter:
+                  type: array
+                  items:
+                    type: string
+                
+  scope: Cluster
+  names:
+    plural: resourcewatchers
+    singular: resourcewatcher
+    kind: ResourceWatcher
+    shortNames:
+    - rw
+---

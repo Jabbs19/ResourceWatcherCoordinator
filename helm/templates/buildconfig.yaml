@@ -1,0 +1,76 @@
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: python
+  namespace: {{ .Values.namespace }}
+  labels:
+    build: {{ .Values.applicationName }}
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+    - name: 3.7-prod
+      annotations:
+        openshift.io/imported-from: 'bitnami/python:3.7-prod'
+      from:
+        kind: DockerImage
+        name: 'bitnami/python:3.7-prod'
+      generation: 2
+      importPolicy: {}
+      referencePolicy:
+        type: Source
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+name: {{ .Values.applicationName }}
+namespace: {{ .Values.namespace }}
+labels:
+    build: {{ .Values.applicationName }}
+spec:
+lookupPolicy:
+    local: false
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: {{ .Values.applicationName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    build: {{ .Values.applicationName }}
+  annotations:
+    openshift.io/generated-by: OpenShiftNewBuild
+spec:
+  nodeSelector: null
+  output:
+    to:
+      kind: ImageStreamTag
+      name: {{ .Values.applicationName }}:{{ .Values.imageTag}}
+  resources: {}
+  successfulBuildsHistoryLimit: 5
+  failedBuildsHistoryLimit: 5
+  strategy:
+    type: Docker
+    dockerStrategy:
+      from:
+        kind: ImageStreamTag
+        name: 'python:3.7-prod'
+  postCommit: {}
+  source:
+    type: Git
+    git:
+      uri: {{ .Values.git }}
+  triggers:
+    - type: GitHub
+      github:
+        secret: hhmxrcUXi0t45l_vDsXr
+    - type: Generic
+      generic:
+        secret: abagi39Hs8KTiu4ocK5u
+    - type: ConfigChange
+    - type: ImageChange
+      imageChange:
+        lastTriggeredImageID: >-
+          bitnami/python@sha256:941024d8e989cd5f38f257e0ff6991c66ee5caac3a87b3fd087cfcf02f0185e3
+  runPolicy: Serial

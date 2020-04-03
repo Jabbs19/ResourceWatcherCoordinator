@@ -1,0 +1,70 @@
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: {{ .Values.applicationName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  strategy:
+    type: Rolling
+    rollingParams:
+      updatePeriodSeconds: 1
+      intervalSeconds: 1
+      timeoutSeconds: 600
+      maxUnavailable: 25%
+      maxSurge: 25%
+    resources: {}
+    activeDeadlineSeconds: 21600
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          -  {{ .Values.applicationName }}
+        from:
+          kind: ImageStreamTag
+          namespace: {{ .Values.namespace }}
+          name: {{ .Values.namespace }}:latest
+  replicas: 1
+  revisionHistoryLimit: 10
+  test: false
+  selector:
+    app: {{ .Values.applicationName }}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: {{ .Values.applicationName }}
+    spec:
+      containers:
+        - name: {{ .Values.applicationName }}
+          image:  {{ .Values.imageRegistry }}/{{ .Values.namespace }}/{{ .Values.applicationName }}:{{ .Values.imageTag }}
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ANNOTATION_FILTER_BOOLEAN
+              value: navitusExternal
+            - name: ANNOTATION_FILTER_STRING
+              value: navitusExternalDNSHostname
+            - name: WATCH_NAMESPACE
+              value: watch-this
+            - name: API_VERSION
+              value: CoreV1Api
+            - name: API_RESOURCE_NAME
+              value: list_namespaced_service
+            - name: PATH_TO_CA_PEM
+              value: /ca/route
+            - name: JWT_TOKEN
+              value: '141819048109481094'
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: Always
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      serviceAccountName:  {{ .Values.serviceAccountName }}
+      serviceAccount: {{ .Values.serviceAccountName }}
+      securityContext: {}
+      schedulerName: default-scheduler

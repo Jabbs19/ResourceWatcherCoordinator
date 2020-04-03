@@ -1,0 +1,43 @@
+apiVersion: jabbs19.com/v1
+kind: ResourceWatcher
+metadata:
+  name: resource-watcher-service
+  finalizers: ["must.delete.manually.for.now"]
+spec:
+  deployNamespace: resource-watcher-testnamespace
+  watchNamespace: resource-watcher-testnamespace
+  k8sApiVersion: CoreV1Api
+  k8sApiResourceName: list_namespaced_service
+  annotationFilterBoolean: annotationTriggerBoolean
+  annotationFilterString: annotationTriggerString
+  eventTypeFilter: ['ADDED','UPDATED','DELETED']
+  
+---
+ 
+# apiVersion: jabbs19.com/v1
+# kind: WatcherConfig
+# metadata:
+  # name: cluster-watcher
+# spec:
+  # deployNamespace: central-watcher
+  # watchNamespace: watch-this
+  # k8sApiVersion: CoreV1Api
+  # k8sApiResourceName: list_namespaced_service
+  # watchNamespace: watch-this
+  # annotationFilterBoolean: annotationTriggerBoolean
+  # annotationFilterString: annotationTriggerString
+  
+# ---
+
+# apiVersion: jabbs19.com/v1
+# kind: WatcherConfig
+# metadata:
+  # name: cluster-watcher-for-other-group
+# spec:
+  # deployNamespace: other-groups-central-watcher
+  # watchNamespace: watch-this
+  # k8sApiVersion: CoreV1Api
+  # k8sApiResourceName: list_namespaced_service
+  # watchNamespace: watch-this
+  # annotationFilterBoolean: navitusExternal
+  # annotationFilterString: navitusExternalDNSHostname

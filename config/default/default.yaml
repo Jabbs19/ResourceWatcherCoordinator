@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immortalcontainers-controller
+  labels:
+    app: immortalcontainers-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immortalcontainers-controller
+  template:
+    metadata:
+      labels:
+        app: immortalcontainers-controller
+    spec:
+      serviceAccountName: immortalcontainers-operator
+      containers:
+      - image: flugelit/immortalcontainer-operator-py:dev
+        name: immortalcontainers-controller

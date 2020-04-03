@@ -1,0 +1,5 @@
+items:
+- apiVersion: jabbs19.com/v1
+  kind: WatcherConfig
+  metadata:
+    finalizers: []
