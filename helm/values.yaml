@@ -2,6 +2,6 @@ namespace: resource-watcher-coordinator
 applicationName: resource-watcher-coordinator
 serviceAccountName: resource-watcher-coordinator
 roleName: resource-watcher-admin
-git: 'https://github.com/Jabbs19/watcherOperator.git'
+git: https://github.com/Jabbs19/ResourceWatcherCoordinator.git
 imageRegistry: image-registry.openshift-image-registry.svc:5000
 imageTag: latest

@@ -15,7 +15,6 @@ class simpleauth():
         self.jwtTOKEN = jwtTOKEN
         self.kwargs = kwargs
 
-
         # create an instance of the API class
         authConfiguration = client.Configuration()
 
@@ -34,8 +33,8 @@ class simpleauth():
         self.authConfiguration = authConfiguration
 
 
-def process_kubeconfig():
-        if 'KUBERNETES_PORT' in os.environ:
+def load_cluster_config():
+    if 'KUBERNETES_PORT' in os.environ:
         config.load_incluster_config()
     else:
         config.load_kube_config()
@@ -45,7 +44,7 @@ def process_kubeconfig():
 def create_authorized_client(sslCertPath=None, jwtTOKEN=None, **kwargs):
     authConfiguration = client.Configuration()
 
-    if (os.getenv('JWT_ENABLE') != ""):
+    if (os.getenv('JWT_ENABLE') == True):
         try:
             jwt = os.getenv('JWT_TOKEN')
         except:
@@ -75,18 +74,6 @@ def create_authorized_client(sslCertPath=None, jwtTOKEN=None, **kwargs):
 
 def create_api_client(apiVersion, authClient, **kwargs):
 
-    app_watcher_api = client.CoreV1Api(authClient)
-    pod_api = client.CoreV1Api(authClient)
-
-
-    #WatcherOperatorConfig "Master" Configuration (Could be configmap, secret, helm values, etc.)
-    #Change into CRD, run an "install Pod" to do upgrades, installs, etc.
-
-    #LOad "App COnfig"
-    namespace = "watch-this"
-    event_filter_list = ['ADDED','MODIFIED','DELETED']
-    pApi = "CoreV1Api"
-    pResource = "list_namespaced_service"
     api = eval('client.' + apiVersion + '(authClient)')
     
-    return apiClient
+    return api

@@ -20,15 +20,15 @@ class ThreadedWatcher(threading.Thread):
         watcher.join()
     """
 
-    def __init__(self, func, filterObject, *args, **kwargs):
+    def __init__(self, filterObject, func, *args, **kwargs):
         """Initialize this watcher.
 
         :param func: The API function pointer to watch. Any parameter to the 
                      function can be passed after this parameter.
         """
         super().__init__(daemon=True)
-        self.filterObject = filterObject
         self.func = func
+        self.filterObject = filterObject
         self.func_args = args
         self.func_kwargs = kwargs
         self.handlers = []
@@ -48,11 +48,7 @@ class ThreadedWatcher(threading.Thread):
             self.func, *self.func_args, **self.func_kwargs)
         for event in stream:
             for handler in self.handlers:
-                #Check for special filters
-                if str(event['type']) in self.filterObject['eventTypesList']:
-                #if str(event['type']) in str(event['type']):
-                    #print("Event Type Match" + str(event['type']))
-
+                if str(event['type']) in self.filterObject['eventTypesList']:                    
                     try:
                         handler(event)
                     except:

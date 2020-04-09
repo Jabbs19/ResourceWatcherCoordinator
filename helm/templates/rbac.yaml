@@ -10,6 +10,14 @@ rules:
   - resourcewatchers
   - resourcewatchers/finalizers
   verbs: [ get, list, create, update, delete, deletecollection, watch ]
+# - apiGroups:
+#   - "*"
+#   resources:
+#   - "*"
+#   verbs:
+#   - get
+#   - list
+#   - watch
 ---
 kind: ServiceAccount
 apiVersion: v1

@@ -9,39 +9,79 @@ from kubernetes.client.rest import ApiException
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 
-def create_deployment(apiInstance, deploymentBody, deploymentNamespace):
+def build_api_instance(authorizedClient):
+    apiInstance = client.AppsV1Api(authorizedClient)
+    return apiInstance
+
+def create_deployment(authorizedClient, deploymentBody, deploymentNamespace):
     # Create deployement
     try:
+        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.create_namespaced_deployment(body=deploymentBody,namespace=deploymentNamespace)
         logger.info("Deployment Created [" + api_response.metadata.name +"]")
     except ApiException as e:
         logger.error("Deployment not created. [Deployment: " + api_response.metadata.name + "][CREATE] Error: %s\n" % e)
 
 
-def update_deployment(apiInstance, deploymentBody, deploymentName, deploymentNamespace):
+def update_deployment(authorizedClient, deploymentBody, deploymentName, deploymentNamespace):
     # Patch the deployment
     try:
+        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.patch_namespaced_deployment(name=deploymentName,namespace=deploymentNamespace,body=deploymentBody)
         logger.info("Deployment Patched [" + deploymentName +"]")
     except ApiException as e:
         logger.error("Deployment not patched. [Deployment: " + deploymentName + "][PATCH] Error: %s\n" % e)
 
 
-def delete_deployment(apiInstance, deploymentName, deploymentNamespace):
+def delete_deployment(authorizedClient, deploymentName, deploymentNamespace):
     # Delete deployment
     try:
+        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.delete_namespaced_deployment(name=deploymentName, namespace=deploymentNamespace, body=client.V1DeleteOptions(
             propagation_policy='Foreground',
             grace_period_seconds=5))
         logger.info("Deployment Deleted [" + deploymentName +"]")
     except ApiException as e:
-        logger.error("Deployment not patched. [Deployment: " + deploymentName + "][DELETE] Error: %s\n" % e)
+        logger.error("Deployment not deleted. [Deployment: " + deploymentName + "][DELETE] Error: %s\n" % e)
 
 
-def check_for_deployment(apiInstance, deploymentName, deploymentNamespace):
+def check_for_deployment(authorizedClient, deploymentName, deploymentNamespace):
     try:
+        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.read_namespaced_deployment(name=deploymentName, namespace=deploymentNamespace)
         return True
     except ApiException as e:
         return False
+
+def create_quick_deployment_definition(deploymentName, deployImage, deployPorts, serviceAccount):
+    # Configureate Pod template container
+        container = client.V1Container(
+            name=deploymentName,
+            image=deployImage,
+            ports=[client.V1ContainerPort(container_port=deployPorts)]
+        )
+        # Create and configurate a spec section
+        template = client.V1PodTemplateSpec(
+            metadata=client.V1ObjectMeta(labels={"app": deploymentName}),
+            spec=client.V1PodSpec(service_account=serviceAccount,
+                                service_account_name=serviceAccount,
+                                containers=[container]))
+
+# # Create and configurate a spec section
+#         template = client.V1PodTemplateSpec(
+#             metadata=client.V1ObjectMeta(labels={"app": self.watcherApplicationName}),
+#             spec=client.V1PodSpec(containers=[container]))            
+        # Create the specification of deployment
+        spec = client.V1DeploymentSpec(
+            replicas=1,
+            template=template,
+            selector={'matchLabels': {'app':  deploymentName}})
+        # Instantiate the deployment object
+        deployment = client.V1Deployment(
+            api_version="apps/v1",
+            kind="Deployment",
+            metadata=client.V1ObjectMeta(name= deploymentName),
+            spec=spec)
+        return deployment
+
 
