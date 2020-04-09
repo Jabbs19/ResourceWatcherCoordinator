@@ -289,6 +289,7 @@ class resourceWatcher():
             name="resource-watcher",
            # image="image-registry.openshift-image-registry.svc:5000/watcher-operator/watcher-application:latest",
             image="busybox",
+            command= ["/bin/bash", "-c", "tail -f /dev/null"],
             ports=[client.V1ContainerPort(container_port=8080)],
             env=[client.V1EnvVar(name='ANNOTATION_FILTER_BOOLEAN',value=self.annotationFilterBoolean),
                 client.V1EnvVar(name='ANNOTATION_FILTER_STRING',value=self.annotationFilterString),
