@@ -1,6 +1,7 @@
 import logging
 import queue
 import threading
+import json
 
 from kubernetes.client.rest import ApiException
 from kubernetes.client import models
@@ -30,14 +31,16 @@ class coordinator():
         self.customEventFilter =  {'eventTypesList': ['ADDED','MODIFIED','DELETED']}
 
         self.deploymentApiVersion = "AppsV1Api"
-        self.deployEventFilter = {'eventTypesList': ['ZZ']}
+        self.deployEventFilter = {'eventTypesList': ['MODIFIED']}
 
         self.finalizer = ['watcher.delete.finalizer']
 
         self.authorizedClient = authorizedClient
 
         self.coreAPI = client.CoreV1Api(authorizedClient)
-        self.coreAPIfilter = {'eventTypesList': ['ADDED','MODIFIED','DELETED']}
+        self.coreAPIfilter = {'eventTypesList': ['MODIFIED']}
+        self.rbacAPI = client.RbacAuthorizationV1Api(authorizedClient) 
+        self.rbacAPIfilter = {'eventTypesList': ['MODIFIED']}
 
         self.annotationFilterKey = "resourceWatcherParent"
         self.annotationFilterValue = "resource-watcher-service"   #Optional?
@@ -51,6 +54,12 @@ class coordinator():
         self.deploymentApiInstance = create_api_client(self.deploymentApiVersion,self.authorizedClient)
     
 
+
+#
+#Global Functions for Operators  
+#
+#  
+
 def get_annotation_value(annotationFilterKey, annotationDict):
 
     try:
@@ -63,7 +72,7 @@ def get_annotation_value(annotationFilterKey, annotationDict):
     else:
         return None
 
-#Global Functions for Operators            
+
 def check_marked_for_delete(authorizedClient, operandName, customGroup, customVersion, customPlural):
     try:
         operandBody = get_custom_resource(authorizedClient, operandName, customGroup, customVersion, customPlural )
@@ -78,15 +87,16 @@ def check_marked_for_delete(authorizedClient, operandName, customGroup, customVe
 
 def should_event_be_processed(authorizedClient, object_key, *args, **kwargs):
     try:
-        eventType, eventObject, objectName, objectNamespace, additionalVars = object_key.split("~~")
+        eventType, eventObject, objectName, objectNamespace, annotation = object_key.split("~~")
         #watcherConfigExist = check_for_custom_resource(objectName, *self.func_args, **self.func_kwargs) self.customAPI, self.customGroup, self.customVersion, self.customPlural, objectName)
-        resourceWatcherExist = check_for_custom_resource(authorizedClient, objectName, *args, **kwargs) 
+        
+        #List the monitored objects that you want to use annotations to "trigger" events
+        if eventObject in ['ServiceAccount','ClusterRole','ClusterRoleBinding']:
+            lookupValue = annotation
+        else:
+            lookupValue = objectName
 
-        print ("objectName: " + objectName )
-        print ("resourceWatcherExist: " + str(resourceWatcherExist))
-        #print ("objectName: " + objectName )
-        #print ("objectName: " + objectName )
-
+        resourceWatcherExist = check_for_custom_resource(authorizedClient, lookupValue, *args, **kwargs) 
 
         if resourceWatcherExist == True:
             return True
@@ -141,6 +151,13 @@ class resourceWatcher():
         self.serviceAccountName = self.resourceWatcherName + '-sa'
         self.clusterRoleName = self.resourceWatcherName + '-clusterrole'
         self.clusterRoleBindingName = self.resourceWatcherName + '-clusterrolebinding'
+        #Annotation Creation
+        try:
+            annotationDict = json.loads(self.crdObject.annotationFilterKey+":"+self.resourceWatcherName) 
+        except:
+            annotationDict = None
+            print('annotation creation did not work')
+        self.annotationStringForCreation = annotationDict
 
     def process_marked_for_deletion(self, object_key, *args, **kwargs):
         eventType, eventObject, objectName, objectNamespace, additionalVars = object_key.split("~~")
@@ -161,9 +178,9 @@ class resourceWatcher():
         # if check_for_deployment(args.deployAPI, objectName, objectNamespace):
         if check_for_deployment(self.crdObject.authorizedClient,objectName,objectNamespace):
 
-            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace)
-            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet')
-            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace)
+            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace, self.annotationStringForCreation)
+            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet', self.annotationStringForCreation)
+            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace, self.annotationStringForCreation)
             deployBody = self._build_deployment_definition()
 
             #Could filter by event Object (Deployment, SA, Clusterrole, etc.), or could just redeploy whole solution when modified is found.
@@ -177,9 +194,9 @@ class resourceWatcher():
             #watcherApplicationConfig.updateStatus(deployOrConfigName, 'Added')
 
         else:
-            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace)
-            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet')
-            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace)
+            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace, self.annotationStringForCreation)
+            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet', self.annotationStringForCreation)
+            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace, self.annotationStringForCreation)
             deployBody = self._build_deployment_definition()
 
             create_serviceaccount(self.crdObject.authorizedClient,saBody,self.deployNamespace)
@@ -302,7 +319,7 @@ class resourceWatcher():
         deployment = client.V1Deployment(
             api_version="apps/v1",
             kind="Deployment",
-            metadata=client.V1ObjectMeta(name= self.resourceWatcherName),
+            metadata=client.V1ObjectMeta(name= self.resourceWatcherName,annotations=self.annotationStringForCreation),
             spec=spec)
         return deployment
 

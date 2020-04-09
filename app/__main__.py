@@ -47,14 +47,14 @@ def main():
 
     if args.tester == "serviceaccount":
         print("Test Mode (SA)")
-        body = create_quick_sa_definition("mj-test-sa", "resource-watcher-testnamespace")
-        create_serviceaccount(create_api_client("CoreV1Api",authorizedClient), body, "resource-watcher-testnamespace")
+        body = create_quick_sa_definition("mj-with-annotations", "resource-watcher-testnamespace", {"resourceWatcherParent":"resource-watcher-serviceb"})
+        create_serviceaccount(authorizedClient, body, "resource-watcher-testnamespace")
     elif args.tester == "clusterrole":
         body = create_quick_clusterrole_definition("mj-test-clusterrole","blahblah")
-        create_clusterrole(create_api_client("RbacAuthorizationV1Api",authorizedClient), body)
+        create_clusterrole(authorizedClient, body)
     elif args.tester == "clusterrolebinding":
         body = create_quick_clusterrolebinding_definition("mj-test-clusterrolebinding", "mj-test-clusterrole", "mj-test-sa", "resource-watcher-testnamespace")
-        create_clusterrolebinding(create_api_client("RbacAuthorizationV1Api",authorizedClient), body)
+        create_clusterrolebinding(authorizedClient, body)
     else:
    
         #Primary CR/Operand Watcher
@@ -68,9 +68,15 @@ def main():
         
         #Secondary "Monitor" watchers.  Essentially, if Modified, redeploy entire application.
         serviceaccount_watcher = ThreadedWatcher(rwCoordinator.coreAPIfilter, rwCoordinator.coreAPI.list_service_account_for_all_namespaces)
+        clusterrole_watcher = ThreadedWatcher(rwCoordinator.rbacAPIfilter, rwCoordinator.rbacAPI.list_cluster_role)
+        clusterrolebinding_watcher = ThreadedWatcher(rwCoordinator.rbacAPIfilter, rwCoordinator.rbacAPI.list_cluster_role_binding)
+
+
+
+
 
         #Controller.  All "watchers" fed into Controller to process queues.
-        controller = Controller(rwCoordinator, deployment_watcher, cr_watcher, serviceaccount_watcher)
+        controller = Controller(rwCoordinator, deployment_watcher, cr_watcher, serviceaccount_watcher, clusterrole_watcher, clusterrolebinding_watcher)
         controller.start()
         
         cr_watcher.start()
@@ -78,7 +84,9 @@ def main():
         deployment_watcher.start()
 
         serviceaccount_watcher.start()
-        
+        clusterrole_watcher.start()
+        clusterrolebinding_watcher.start()
+
         try:
             controller.join()
         except (KeyboardInterrupt, SystemExit):

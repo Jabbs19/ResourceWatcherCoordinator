@@ -13,11 +13,11 @@ def build_api_instance(authorizedClient):
     apiInstance = client.CoreV1Api(authorizedClient)
     return apiInstance
 
-def create_quick_sa_definition(saName, saNamespace):
+def create_quick_sa_definition(saName, saNamespace, annotationsDict={}):
     serviceaccount = client.V1ServiceAccount(
             api_version="v1",
             kind="ServiceAccount",
-            metadata=client.V1ObjectMeta(name= saName, namespace=saNamespace)
+            metadata=client.V1ObjectMeta(name= saName, namespace=saNamespace, annotations=annotationsDict)
     )
     return serviceaccount
 

@@ -13,7 +13,7 @@ def build_api_instance(authorizedClient):
     apiInstance = client.RbacAuthorizationV1Api(authorizedClient)
     return apiInstance
 
-def create_quick_clusterrole_definition(clusterRoleName, rules):
+def create_quick_clusterrole_definition(clusterRoleName, rules, annotationsDict={}):
 
     crRules = client.V1PolicyRule(
         api_groups=[""],
@@ -23,7 +23,7 @@ def create_quick_clusterrole_definition(clusterRoleName, rules):
     clusterRole = client.V1ClusterRole(
         api_version="rbac.authorization.k8s.io/v1",
         kind="ClusterRole",
-        metadata=client.V1ObjectMeta(name= clusterRoleName),
+        metadata=client.V1ObjectMeta(name= clusterRoleName, annotations=annotationsDict),
         rules=[crRules]
     )
 
@@ -48,7 +48,8 @@ def delete_clusterrole(authorizedClient, crName):
 
 
 
-def create_quick_clusterrolebinding_definition(clusterRoleBindingName, clusterRoleName, serviceAccountName, saNamespace):
+def create_quick_clusterrolebinding_definition(clusterRoleBindingName, clusterRoleName, serviceAccountName, saNamespace, annotationsDict={}):
+
     clusterrole = client.V1RoleRef(
         api_group="rbac.authorization.k8s.io",
         kind="ClusterRole",
@@ -62,7 +63,7 @@ def create_quick_clusterrolebinding_definition(clusterRoleBindingName, clusterRo
     clusterRoleBinding = client.V1ClusterRoleBinding(
         api_version="rbac.authorization.k8s.io/v1",
         kind="ClusterRoleBinding",
-        metadata=client.V1ObjectMeta(name= clusterRoleBindingName),
+        metadata=client.V1ObjectMeta(name= clusterRoleBindingName, annotations=annotationsDict),
         role_ref=clusterrole,
         subjects=[subjectsList]
     )
