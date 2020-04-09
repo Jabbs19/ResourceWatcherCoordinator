@@ -176,7 +176,7 @@ class Controller(threading.Thread):
         #Do we care about this event.
         #This will still capture "Operands" that are deleted, because the finalizer remains, allowing us to grab configs to delete objects.
         if should_event_be_processed(self.coordinatorObject.authorizedClient, object_key, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural) == True:
-            logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+            logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                     "ResourceWatcher found."))            
             rwOperand = load_config_object(self.coordinatorObject.authorizedClient, objectName, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural)
             rw = resourceWatcher( rwOperand, self.coordinatorObject)
@@ -184,7 +184,7 @@ class Controller(threading.Thread):
 
             # If Marked for Delete
             if check_marked_for_delete(self.coordinatorObject.authorizedClient, objectName, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural):
-                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                         "ResourceWacher marked for deletion."))  
 
                 rw.process_marked_for_deletion(object_key)
