@@ -39,9 +39,6 @@ def main():
     # deployAPI = create_api_client(rwCoordinator.deploymentApiVersion,authorizedClient)
     # rwCoordinator.set_api_instance(customApiInstance=customAPI, deploymentApiInstance=deployAPI)
 
-    #Get API Instances for ThreadWatchers
-    rwCoordinator.autobuild_api_instances()
-
     args = PARSER.parse_args()
     print(str(args.tester))
 

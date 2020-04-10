@@ -29,9 +29,11 @@ class coordinator():
 
         self.customApiVersion = "CustomObjectsApi"
         self.customEventFilter =  {'eventTypesList': ['ADDED','MODIFIED','DELETED']}
+        self.customApiInstance = client.CustomObjectsApi(authorizedClient)
 
         self.deploymentApiVersion = "AppsV1Api"
-        self.deployEventFilter = {'eventTypesList': ['MODIFIED']}
+        self.deployEventFilter = {'eventTypesList': ['zz']}
+        self.deploymentApiInstance = client.AppsV1Api(authorizedClient)
 
         self.finalizer = ['watcher.delete.finalizer']
 
@@ -45,15 +47,6 @@ class coordinator():
         self.annotationFilterKey = "resourceWatcherParent"
         self.annotationFilterValue = "resource-watcher-service"   #Optional?
     
-    def set_api_instance(self, customApiInstance, deploymentApiInstance):
-        self.customApiInstance = customApiInstance
-        self.deploymentApiInstance = deploymentApiInstance
-    
-    def autobuild_api_instances(self):
-        self.customApiInstance = create_api_client(self.customApiVersion,self.authorizedClient)
-        self.deploymentApiInstance = create_api_client(self.deploymentApiVersion,self.authorizedClient)
-    
-
 
 #
 #Global Functions for Operators  
@@ -73,19 +66,28 @@ def get_annotation_value(annotationFilterKey, annotationDict):
         return None
 
 
-def check_marked_for_delete(authorizedClient, operandName, customGroup, customVersion, customPlural):
-    try:
-        operandBody = get_custom_resource(authorizedClient, operandName, customGroup, customVersion, customPlural )
-        if (operandBody['metadata']['deletionTimestamp'] != ""):
-            return True
-        else:
+def check_marked_for_delete(authorizedClient, object_key, customGroup, customVersion, customPlural):
+    eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
+
+    if eventObject == 'ResourceWatcher':
+        operandName = objectName
+        try:
+            operandBody = get_custom_resource(authorizedClient, operandName, customGroup, customVersion, customPlural )
+            if (operandBody['metadata']['deletionTimestamp'] != ""):
+                return True
+            else:
+                return False
+
+        except:
             return False
-    except:
+    else:
         return False
+    
 
 
 
-def should_event_be_processed(authorizedClient, object_key, *args, **kwargs):
+
+def load_configuration_object(authorizedClient, object_key, *args, **kwargs):
     try:
         eventType, eventObject, objectName, objectNamespace, annotation = object_key.split("~~")
         #watcherConfigExist = check_for_custom_resource(objectName, *self.func_args, **self.func_kwargs) self.customAPI, self.customGroup, self.customVersion, self.customPlural, objectName)
@@ -93,27 +95,25 @@ def should_event_be_processed(authorizedClient, object_key, *args, **kwargs):
         #List the monitored objects that you want to use annotations to "trigger" events
         if eventObject in ['ServiceAccount','ClusterRole','ClusterRoleBinding']:
             lookupValue = annotation
-        else:
+        elif eventObject in ['Deployment','ResourceWatcher']:
             lookupValue = objectName
 
-        resourceWatcherExist = check_for_custom_resource(authorizedClient, lookupValue, *args, **kwargs) 
+        try:
+            rwOperand = get_custom_resource(authorizedClient, lookupValue, *args, **kwargs) 
+        except:
+            rwOperand = None
 
-        if resourceWatcherExist == True:
-            return True
+        if rwOperand:
+            return rwOperand, True
         else:
-            return False
+            return None, False
+
     except ApiException as e:
         logger.info("No Object Found for 'should event be processed': {:s}".format(object_key))
         logger.error("Error:" + e)
-        return False
-  
-    
-def load_config_object(authorizedClient, objectName, *args, **kwargs):
-    # cr = get_custom_resource(objectName, self.customAPI, self.customGroup, self.customVersion, self.customPlural)
-    cr = get_custom_resource(authorizedClient, objectName, *args, **kwargs) 
-    return cr
+        return None, False
 
-    
+
 
 
 class resourceWatcher():
@@ -153,117 +153,185 @@ class resourceWatcher():
         self.clusterRoleBindingName = self.resourceWatcherName + '-clusterrolebinding'
         #Annotation Creation
         try:
-            annotationDict = json.loads(self.crdObject.annotationFilterKey+":"+self.resourceWatcherName) 
+            # annotationString = {}
+            #     self.crdObject.annotationFilterKey
+            # }
+            # annotationDict = json.loads(self.crdObject.annotationFilterKey+":"+self.resourceWatcherName) 
+            annotationDict = {self.crdObject.annotationFilterKey:self.resourceWatcherName}
         except:
             annotationDict = None
             print('annotation creation did not work')
         self.annotationStringForCreation = annotationDict
 
     def process_marked_for_deletion(self, object_key, *args, **kwargs):
-        eventType, eventObject, objectName, objectNamespace, additionalVars = object_key.split("~~")
+        eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
         delete_deployment(self.crdObject.authorizedClient, objectName, objectNamespace)
+        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                    "Deployment Deleted")) 
 
         delete_clusterrolebinding(self.crdObject.authorizedClient, self.clusterRoleBindingName)
+        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                    "ClusterRoleBinding Deleted")) 
 
         delete_clusterrole(self.crdObject.authorizedClient, self.clusterRoleName)
+        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                    "ClusterRole Deleted")) 
 
         delete_serviceaccount(self.crdObject.authorizedClient, self.serviceAccountName, objectNamespace)
+        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+            "ServiceAccount Deleted")) 
+
         self.remove_finalizer()
 
     
     def process_modified_event(self, object_key, *args, **kwargs):
-        eventType, eventObject, objectName, objectNamespace, additionalVars = object_key.split("~~")
+        eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
-        # if check_for_deployment(args.deployAPI, objectName, objectNamespace):
-        if check_for_deployment(self.crdObject.authorizedClient,objectName,objectNamespace):
-
+        if eventObject == 'ServiceAccount':
             saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace, self.annotationStringForCreation)
-            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet', self.annotationStringForCreation)
-            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace, self.annotationStringForCreation)
-            deployBody = self._build_deployment_definition()
+            if check_for_serviceaccount(self.crdObject.authorizedClient,self.serviceAccountName,self.deployNamespace) == True:
+                update_serviceaccount(self.crdObject.authorizedClient, self.serviceAccountName, self.deployNamespace, saBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Service Account Updated")) 
+            else:
+                create_serviceaccount(self.crdObject.authorizedClient,saBody,self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Service Account Created")) 
 
-            #Could filter by event Object (Deployment, SA, Clusterrole, etc.), or could just redeploy whole solution when modified is found.
-            update_serviceaccount(self.crdObject.authorizedClient, self.serviceAccountName, objectNamespace, saBody)
-            update_clusterrole(self.crdObject.authorizedClient, self.clusterRoleName, clusterroleBody)
-            update_clusterrolebinding(self.crdObject.authorizedClient, self.clusterRoleBindingName,     crBindingBody)
-            update_deployment(self.crdObject.authorizedClient, deployBody, objectName, objectNamespace)
+        if eventObject == 'ClusterRole':
+            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet', self.annotationStringForCreation)
+            if check_for_clusterrole(self.crdObject.authorizedClient,self.clusterRoleName) == True:
+                update_clusterrole(self.crdObject.authorizedClient, self.clusterRoleName, clusterroleBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRole Updated")) 
+                                        
+            else:
+                create_clusterrole(self.crdObject.authorizedClient,clusterroleBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRole Updated")) 
+                            
+        if eventObject == 'ClusterRoleBinding':
+            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace, self.annotationStringForCreation)
+            if check_for_clusterrolebinding(self.crdObject.authorizedClient,self.clusterRoleBindingName) == True:
+                update_clusterrolebinding(self.crdObject.authorizedClient, self.clusterRoleBindingName,     crBindingBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRoleBinding Updated")) 
+            else:
+                create_clusterrolebinding(self.crdObject.authorizedClient,crBindingBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRoleBinding Updated")) 
+                                            
+
+        if eventObject == 'Deployment':
+            deployBody = self._build_deployment_definition()
+            if check_for_deployment(self.crdObject.authorizedClient,self.resourceWatcherName, self.deployNamespace) == True:
+                update_deployment(self.crdObject.authorizedClient, deployBody, objectName, self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Deployment Updated")) 
+                                            
+            else:
+                create_deployment(self.crdObject.authorizedClient, deployBody, self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Deployment Updated")) 
+                                            
+
+        if eventObject == 'ResourceWatcher':
+            #Deploy All
+            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace, self.annotationStringForCreation)
+            if check_for_serviceaccount(self.crdObject.authorizedClient,self.serviceAccountName,self.deployNamespace) == True:
+                update_serviceaccount(self.crdObject.authorizedClient, self.serviceAccountName, objectNamespace, saBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ResourceWatcher Updated")) 
+                                            
+            else:
+                create_serviceaccount(self.crdObject.authorizedClient,saBody,self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ResourceWatcher Updated")) 
+
+            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet', self.annotationStringForCreation)
+            if check_for_clusterrole(self.crdObject.authorizedClient,self.clusterRoleName) == True:
+                update_clusterrole(self.crdObject.authorizedClient, self.clusterRoleName, clusterroleBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRole Updated")) 
+                                        
+            else:
+                create_clusterrole(self.crdObject.authorizedClient,clusterroleBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRole Updated")) 
+
+            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace, self.annotationStringForCreation)
+            if check_for_clusterrolebinding(self.crdObject.authorizedClient,self.clusterRoleBindingName) == True:
+                update_clusterrolebinding(self.crdObject.authorizedClient, self.clusterRoleBindingName,     crBindingBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRoleBinding Updated")) 
+            else:
+                create_clusterrolebinding(self.crdObject.authorizedClient,crBindingBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRoleBinding Updated")) 
+
+            deployBody = self._build_deployment_definition()
+            if check_for_deployment(self.crdObject.authorizedClient,self.resourceWatcherName, self.deployNamespace) == True:
+                update_deployment(self.crdObject.authorizedClient, deployBody, objectName, self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Deployment Updated")) 
+                                            
+            else:
+                create_deployment(self.crdObject.authorizedClient, deployBody, self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Deployment Updated")) 
 
  
-
-            #watcherApplicationConfig.updateStatus(deployOrConfigName, 'Added')
-
-        else:
-            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace, self.annotationStringForCreation)
-            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet', self.annotationStringForCreation)
-            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace, self.annotationStringForCreation)
-            deployBody = self._build_deployment_definition()
-
-            create_serviceaccount(self.crdObject.authorizedClient,saBody,self.deployNamespace)
-            create_clusterrole(self.crdObject.authorizedClient,clusterroleBody)
-            create_clusterrolebinding(self.crdObject.authorizedClient,crBindingBody)
-            create_deployment(self.crdObject.authorizedClient, deployBody, self.deployNamespace)
-
-   #               if check_for_deployment(self.deployAPI, watcherApplicationConfig.watcherApplicationName, watcherApplicationConfig.objectNamespace):
-        #                   dep = watcherApplicationConfig.get_deployment_object()
-        #                   update_deployment(self.deployAPI, dep, watcherApplicationConfig.watcherApplicationName, watcherApplicationConfig.objectNamespace)
-        #                   #watcherApplicationConfig.updateStatus(objectName, 'Added and Modified')
-
-        #               else:
-        #                   dep = watcherApplicationConfig.get_deployment_object()
-        #                   create_deployment(self.deployAPI, dep, watcherApplicationConfig.deployNamespace)
-
-    def process_deleted_event(self, object_key, *args, **kwargs):
-        eventType, eventObject, objectName, objectNamespace, additionalVars = object_key.split("~~")
-
-
-                    #Since only sending "delete" events for custom resource, this is truly once its been deleted. 
-                    #Can't use for deleting deployment.
-      #             #watcherApplicationConfig.updateStatus(objectName, 'Deleted')    
-       
        
     def process_added_event(self, object_key, *args, **kwargs):
-        eventType, eventObject, objectName, objectNamespace, additionalVars = object_key.split("~~")
+        eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
-        # if check_for_deployment(args.deployAPI, objectName, objectNamespace):
-        if check_for_deployment(self.crdObject.authorizedClient,objectName,objectNamespace):
+
+        if eventObject == 'ResourceWatcher':
+            #Deploy All
+            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace, self.annotationStringForCreation)
+            if check_for_serviceaccount(self.crdObject.authorizedClient,self.serviceAccountName,self.deployNamespace) == True:
+                update_serviceaccount(self.crdObject.authorizedClient, self.serviceAccountName, objectNamespace, saBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ResourceWatcher Updated")) 
+                                            
+            else:
+                create_serviceaccount(self.crdObject.authorizedClient,saBody,self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ResourceWatcher Updated")) 
+
+            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet', self.annotationStringForCreation)
+            if check_for_clusterrole(self.crdObject.authorizedClient,self.clusterRoleName) == True:
+                update_clusterrole(self.crdObject.authorizedClient, self.clusterRoleName, clusterroleBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRole Updated")) 
+                                        
+            else:
+                create_clusterrole(self.crdObject.authorizedClient,clusterroleBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRole Updated")) 
+
+            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace, self.annotationStringForCreation)
+            if check_for_clusterrolebinding(self.crdObject.authorizedClient,self.clusterRoleBindingName) == True:
+                update_clusterrolebinding(self.crdObject.authorizedClient, self.clusterRoleBindingName,     crBindingBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRoleBinding Updated")) 
+            else:
+                create_clusterrolebinding(self.crdObject.authorizedClient,crBindingBody)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "ClusterRoleBinding Updated")) 
 
             deployBody = self._build_deployment_definition()
-            update_deployment(self.crdObject.authorizedClient, deployBody, objectName, objectNamespace)
-            #watcherApplicationConfig.updateStatus(deployOrConfigName, 'Added')
+            if check_for_deployment(self.crdObject.authorizedClient,self.resourceWatcherName, self.deployNamespace) == True:
+                update_deployment(self.crdObject.authorizedClient, deployBody, objectName, self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Deployment Updated")) 
+                                            
+            else:
+                create_deployment(self.crdObject.authorizedClient, deployBody, self.deployNamespace)
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+                            "Deployment Updated")) 
 
-        else:
-            saBody = create_quick_sa_definition(self.serviceAccountName, self.deployNamespace)
-            clusterroleBody = create_quick_clusterrole_definition(self.clusterRoleName, 'rules not implemented yet')
-            crBindingBody = create_quick_clusterrolebinding_definition(self.clusterRoleBindingName,self.clusterRoleName,self.serviceAccountName,self.deployNamespace)
-            deployBody = self._build_deployment_definition()
-
-            create_serviceaccount(self.crdObject.authorizedClient,saBody,self.deployNamespace)
-            create_clusterrole(self.crdObject.authorizedClient,clusterroleBody)
-            create_clusterrolebinding(self.crdObject.authorizedClient,crBindingBody)
-            create_deployment(self.crdObject.authorizedClient, deployBody, self.deployNamespace)
-
-        #self.createDeployment()
-
-    #not working yet.  have to figure out how to "inject" a status into existing body.
-    #def update_status(self, newStatus):
-        #currentConfig = get_custom_resource(self.apiInstance, self.customGroup, self.customVersion, self.customPlural, self.watcherApplicationName)
-        #Check by printing this.  
-        #Overwrite the "status"
-        #currentConfig.metadata.status = newStatus
-
-        #Patch the actual resource.
-        #api_response = patch_custom_resource(self.apiInstance, self.customGroup, self.customVersion, self.customPlural, self.customKind, self.watcherApplicationName, currentConfig)
-        #return api_response
-    
-    # def check_marked_for_delete(self):
-    #     try:
-    #         currentConfig = get_custom_resource(self.apiInstance, self.customGroup, self.customVersion, self.customPlural, self.watcherApplicationName)
-    #         self.deleteTimestamp = currentConfig['metadata']['deletionTimestamp']
-    #         return True
-    #     except:
-    #         self.deleteTimestamp = None
-    #         return False
         
     def remove_finalizer(self):
         #Build Body to pass to customresources.patch
@@ -324,6 +392,14 @@ class resourceWatcher():
             spec=spec)
         return deployment
 
+def process_deleted_event(object_key, *args, **kwargs):
+    eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
+
+    logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                    "Object Delete.")) 
+                #Since only sending "delete" events for custom resource, this is truly once its been deleted. 
+                #Can't use for deleting deployment.
+    #             #watcherApplicationConfig.updateStatus(objectName, 'Deleted')   
      
 
    

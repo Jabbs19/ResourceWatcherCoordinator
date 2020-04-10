@@ -2,7 +2,10 @@
 from pprint import pprint
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
+import logging
 
+logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO)
 
 def build_api_instance(authorizedClient):
     apiInstance = client.CustomObjectsApi(authorizedClient)

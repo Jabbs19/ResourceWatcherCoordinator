@@ -1,5 +1,12 @@
+apiVersion: v1
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
 items:
 - apiVersion: jabbs19.com/v1
-  kind: WatcherConfig
+  kind: ResourceWatcher
   metadata:
+    annotations:
     finalizers: []
+    name: resource-watcher-service

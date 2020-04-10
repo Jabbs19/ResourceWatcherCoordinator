@@ -45,8 +45,10 @@ class Controller(threading.Thread):
         #To Add
         self.serviceaccount_watcher = serviceaccount_watcher
         self.serviceaccount_watcher.add_handler(self._handle_agnostic_event)
+
         self.clusterrole_watcher = clusterrole_watcher
         self.clusterrole_watcher.add_handler(self._handle_agnostic_event)
+        
         self.clusterroleibnding_watcher = clusterroleibnding_watcher
         self.clusterroleibnding_watcher.add_handler(self._handle_agnostic_event)                
 
@@ -102,9 +104,9 @@ class Controller(threading.Thread):
         deploymentName = event['object'].metadata.name
         #deployNamespace = event['object']['metadata']['namespace']
         deploymentNamespace = event['object'].metadata.namespace
-        additionalVars = 'nothing yet'
+        annotationValue = 'nothing yet'
         
-        self._queue_work(eventType + "~~" + eventObject + "~~" + deploymentName + "~~" + deploymentNamespace + "~~" + additionalVars )
+        self._queue_work(eventType + "~~" + eventObject + "~~" + deploymentName + "~~" + deploymentNamespace + "~~" + annotationValue )
         #self._queue_work(name)
 
     def _handle_watcherConfig_event(self, event):
@@ -115,9 +117,9 @@ class Controller(threading.Thread):
         resourceWatcherName = event['object']['metadata']['name']
         #M
         resourceWatcherDeployedNamespace = event['object']['spec']['deployNamespace']
-        additionalVars = 'nothing yet'
+        annotationValue = 'nothing yet'
 
-        self._queue_work(eventType + "~~" + eventObject + "~~" + resourceWatcherName + "~~" + resourceWatcherDeployedNamespace + "~~" + additionalVars )
+        self._queue_work(eventType + "~~" + eventObject + "~~" + resourceWatcherName + "~~" + resourceWatcherDeployedNamespace + "~~" + annotationValue )
        # self._queue_work(name)
 
     def _queue_work(self, object_key):
@@ -157,14 +159,14 @@ class Controller(threading.Thread):
         """Make changes to go from current state to desired state and updates
            object status."""
 
-        eventType, eventObject, objectName, objectNamespace, additionalVars = object_key.split("~~")
+        eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
         #ns = object_key.split("/")
 
         print("eventType: " + eventType)
         print("eventObject: " + eventObject)
         print("objectNamespace: " + objectNamespace)
         print("objectName: " + objectName)
-        print("additionalVars: " + additionalVars)
+        print("annotationValue: " + annotationValue)
 
 
     def _process_event(self, object_key):
@@ -173,52 +175,51 @@ class Controller(threading.Thread):
         logger.info("Event Found: {:s}".format(object_key))
         eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
-        #Do we care about this event.
-        #This will still capture "Operands" that are deleted, because the finalizer remains, allowing us to grab configs to delete objects.
-        if should_event_be_processed(self.coordinatorObject.authorizedClient, object_key, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural) == True:
+        if eventType in ['DELETED']:
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
-                    "ResourceWatcher found."))            
-            rwOperand = load_config_object(self.coordinatorObject.authorizedClient, objectName, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural)
-            rw = resourceWatcher( rwOperand, self.coordinatorObject)
-
-
-            # If Marked for Delete
-            if check_marked_for_delete(self.coordinatorObject.authorizedClient, objectName, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural):
-                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
-                        "ResourceWacher marked for deletion."))  
-
-                rw.process_marked_for_deletion(object_key)
-
-            else:
-
-                if eventType in ['ADDED']:
-                    logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
-                        "Event found.")) 
-                    
-                    rw.process_added_event(object_key)
-
-                elif eventType in ['MODIFIED']:
-                    logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
-                        "Event found.")) 
-
-                    rw.process_modified_event(object_key)
-
-     
-                elif eventType in ['DELETED']:
-                    logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
-                        "Event found."))                     
-                   
-
-                    rw.process_deleted_event(object_key)
-
-
-                else:
-                    logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
-                        "Event found, but did not match any filters."))                        
+                "Event found."))                     
+            
+            process_deleted_event(object_key)
         
         else:
-            logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
-                        "No ResourceWatcher found."))  
+
+            #Load the operand and whether or not we should continue.
+            rwOperand, should_event_be_processed = load_configuration_object(self.coordinatorObject.authorizedClient, object_key, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural)
+
+            
+            if should_event_be_processed:
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                        "ResourceWatcher found."))            
+
+                rw = resourceWatcher( rwOperand, self.coordinatorObject)
+
+                # Check to see if it's been "marked for deletion"
+                if check_marked_for_delete(self.coordinatorObject.authorizedClient, object_key, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural):
+                    logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                            "ResourceWacher marked for deletion."))  
+
+                    rw.process_marked_for_deletion(object_key)
+
+                else:
+
+                    if eventType in ['ADDED']:
+                        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                            "Event found.")) 
+                        
+                        rw.process_added_event(object_key)
+
+                    elif eventType in ['MODIFIED']:
+                        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                            "Event found.")) 
+
+                        rw.process_modified_event(object_key)
+                    else:
+                        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                            "Event found, but did not match any filters."))                        
+            
+            else:
+                logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
+                            "No ResourceWatcher found."))  
                
           
 

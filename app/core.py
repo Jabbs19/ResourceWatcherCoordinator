@@ -51,3 +51,10 @@ def delete_serviceaccount(authorizedClient, saName, saNamespace):
     except ApiException as e:
         logger.error("ServiceAccount not deleted. [ServiceAccount: " + saName + "] [DELETE] Error: %s\n" % e)
 
+def check_for_serviceaccount(authorizedClient, saName, saNamespace):
+    try:
+        apiInstance = build_api_instance(authorizedClient)
+        api_response = apiInstance.read_namespaced_service_account(name=saName, namespace=saNamespace)
+        return True
+    except ApiException as e:
+        return False

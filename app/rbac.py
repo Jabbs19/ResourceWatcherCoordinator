@@ -46,6 +46,13 @@ def delete_clusterrole(authorizedClient, crName):
     #api_response = api_instance.delete_cluster_role_binding(name=crName, body=deleteBody)
     api_response = apiInstance.delete_cluster_role(name=crName)
 
+def check_for_clusterrole(authorizedClient, crName):
+    try:
+        apiInstance = build_api_instance(authorizedClient)
+        api_response = apiInstance.read_cluster_role(name=crName)
+        return True
+    except ApiException as e:
+        return False
 
 
 def create_quick_clusterrolebinding_definition(clusterRoleBindingName, clusterRoleName, serviceAccountName, saNamespace, annotationsDict={}):
@@ -87,12 +94,18 @@ def update_clusterrolebinding(authorizedClient, crBindingName, crBindingBody):
 def delete_clusterrolebinding(authorizedClient, crBindingName):
     try:
         apiInstance = build_api_instance(authorizedClient)
-        #deleteBody = kubernetes.client.V1DeleteOptions() # V1DeleteOptions |  (optional)
+        deleteBody = client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
-        #api_response = api_instance.delete_cluster_role_binding(name=crName, body=deleteBody)
-        api_response = apiInstance.delete_cluster_role_binding(name=crBindingName)
+        api_response = apiInstance.delete_cluster_role_binding(name=crBindingName, body=deleteBody)
+        #api_response = apiInstance.delete_cluster_role_binding(name=crBindingName)
     except ApiException as e:
         logger.error("Clusterrolebinding not deleted. [ClusterroleBinding: " + crBindingName + "] [DELETE] Error: %s\n" % e)
 
-
+def check_for_clusterrolebinding(authorizedClient, crBindingName):
+    try:
+        apiInstance = build_api_instance(authorizedClient)
+        api_response = apiInstance.read_cluster_role_binding(name=crBindingName)
+        return True
+    except ApiException as e:
+        return False
     
