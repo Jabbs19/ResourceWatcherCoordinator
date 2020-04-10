@@ -7,6 +7,8 @@ import logging
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 
+class customResource():
+    
 def build_api_instance(authorizedClient):
     apiInstance = client.CustomObjectsApi(authorizedClient)
     return apiInstance

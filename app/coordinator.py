@@ -22,11 +22,13 @@ logger = logging.getLogger('coordinator')
 class coordinator():
     #def __init__(self, customGroup, customVersion, customPlural, customKind, apiVersion, customEventFilter, deployEventFilter):
     def __init__(self, authorizedClient):
+        #CRD Values
         self.customGroup = "jabbs19.com"
         self.customVersion = "v1"
         self.customPlural = "resourcewatchers"
         self.customKind = "ResourceWatcher"
 
+        #Running Operator (Controller) Values
         self.customApiVersion = "CustomObjectsApi"
         self.customEventFilter =  {'eventTypesList': ['ADDED','MODIFIED','DELETED']}
         self.customApiInstance = client.CustomObjectsApi(authorizedClient)
@@ -35,9 +37,7 @@ class coordinator():
         self.deployEventFilter = {'eventTypesList': ['zz']}
         self.deploymentApiInstance = client.AppsV1Api(authorizedClient)
 
-        self.finalizer = ['watcher.delete.finalizer']
 
-        self.authorizedClient = authorizedClient
 
         self.coreAPI = client.CoreV1Api(authorizedClient)
         self.coreAPIfilter = {'eventTypesList': ['MODIFIED']}
@@ -45,8 +45,14 @@ class coordinator():
         self.rbacAPIfilter = {'eventTypesList': ['MODIFIED']}
 
         self.annotationFilterKey = "resourceWatcherParent"
-        self.annotationFilterValue = "resource-watcher-service"   #Optional?
     
+        #Maybe not needed
+        self.authorizedClient = authorizedClient
+        self.finalizer = ['watcher.delete.finalizer']
+        self.annotationFilterValue = "resource-watcher-service"   #Optional?
+
+
+
 
 #
 #Global Functions for Operators  
@@ -166,20 +172,24 @@ class resourceWatcher():
     def process_marked_for_deletion(self, object_key, *args, **kwargs):
         eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
-        delete_deployment(self.crdObject.authorizedClient, objectName, objectNamespace)
-        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+        if check_for_deployment(self.crdObject.authorizedClient,self.resourceWatcherName, self.deployNamespace) == True:
+            delete_deployment(self.crdObject.authorizedClient, self.resourceWatcherName, self.deployNamespace)
+            logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
                     "Deployment Deleted")) 
-
-        delete_clusterrolebinding(self.crdObject.authorizedClient, self.clusterRoleBindingName)
-        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+        
+        if check_for_clusterrolebinding(self.crdObject.authorizedClient,self.clusterRoleBindingName) == True:
+            delete_clusterrolebinding(self.crdObject.authorizedClient, self.clusterRoleBindingName)
+            logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
                     "ClusterRoleBinding Deleted")) 
 
-        delete_clusterrole(self.crdObject.authorizedClient, self.clusterRoleName)
-        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+        if check_for_clusterrole(self.crdObject.authorizedClient,self.clusterRoleName) == True:
+            delete_clusterrole(self.crdObject.authorizedClient, self.clusterRoleName)
+            logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
                     "ClusterRole Deleted")) 
-
-        delete_serviceaccount(self.crdObject.authorizedClient, self.serviceAccountName, objectNamespace)
-        logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
+        
+        if check_for_serviceaccount(self.crdObject.authorizedClient,self.serviceAccountName,self.deployNamespace) == True:
+            delete_serviceaccount(self.crdObject.authorizedClient, self.serviceAccountName, self.deployNamespace)
+            logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
             "ServiceAccount Deleted")) 
 
         self.remove_finalizer()

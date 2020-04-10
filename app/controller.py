@@ -19,7 +19,7 @@ class Controller(threading.Thread):
        calls to Kubernetes API.
     """
 
-    def __init__(self, coordinatorObject, deployment_watcher, config_watcher, serviceaccount_watcher, clusterrole_watcher, clusterroleibnding_watcher,workqueue_size=25):
+    def __init__(self, crdObject, coordinatorObject, deployment_watcher, config_watcher, serviceaccount_watcher, clusterrole_watcher, clusterroleibnding_watcher,workqueue_size=25):
         """Initializes the controller.
 
         :param deploy_watcher: Watcher for pods events.
@@ -54,6 +54,7 @@ class Controller(threading.Thread):
 
         #This is the rwCoordinator Object right now.  Has all variables from that config (AuthorizedClient, Group, Plural, Filters, etc)
         self.coordinatorObject = coordinatorObject
+        self.crdObject = crdObject
 
     def _handle_agnostic_event(self,event):
         
