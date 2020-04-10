@@ -22,37 +22,33 @@ def create_quick_sa_definition(saName, saNamespace, annotationsDict={}):
     return serviceaccount
 
 
-def create_serviceaccount(authorizedClient, saBody, saNamespace):
+def create_serviceaccount(apiInstance, saBody, saNamespace):
 
     try:
-        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.create_namespaced_service_account(body=saBody, namespace=saNamespace)
     except ApiException as e:
         logger.error("ServiceAccount not created. [ServiceAccount] [CREATE] Error: %s\n" % e)
         logger.error("ServiceAccount YAML: " + str(saBody))
 
-def update_serviceaccount(authorizedClient, saName, saNamespace, saBody):
+def update_serviceaccount(apiInstance, saName, saNamespace, saBody):
 
     try:
-        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.patch_namespaced_service_account(name=saName, namespace=saNamespace, body=saBody)
     except ApiException as e:
         logger.error("ServiceAccount not patched. [ServiceAccount: " + saName + "] [PATCH] Error: %s\n" % e)
 
 
-def delete_serviceaccount(authorizedClient, saName, saNamespace):
+def delete_serviceaccount(apiInstance, saName, saNamespace):
 
     try:
-        apiInstance = build_api_instance(authorizedClient)
         deleteBody = client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
         api_response = apiInstance.delete_cluster_role_binding(name=saName, body=deleteBody)
     except ApiException as e:
         logger.error("ServiceAccount not deleted. [ServiceAccount: " + saName + "] [DELETE] Error: %s\n" % e)
 
-def check_for_serviceaccount(authorizedClient, saName, saNamespace):
+def check_for_serviceaccount(apiInstance, saName, saNamespace):
     try:
-        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.read_namespaced_service_account(name=saName, namespace=saNamespace)
         return True
     except ApiException as e:

@@ -28,6 +28,7 @@ def main():
     
     authorizedClient = create_authorized_client()
 
+    rwCRD = crd("jabbs19.com","v1","resourcewatchers","ResourceWatcher")
     rwCoordinator = coordinator(authorizedClient)
 
 
@@ -56,9 +57,9 @@ def main():
    
         #Primary CR/Operand Watcher
         cr_watcher = ThreadedWatcher(rwCoordinator.customEventFilter,rwCoordinator.customApiInstance.list_cluster_custom_object, 
-                                                rwCoordinator.customGroup, 
-                                                rwCoordinator.customVersion, 
-                                                rwCoordinator.customPlural)
+                                                rwCRD.customGroup, 
+                                                rwCRD.customVersion, 
+                                                rwCRD.customPlural)
 
         #Primary deployed object Watcher
         deployment_watcher = ThreadedWatcher(rwCoordinator.deployEventFilter, rwCoordinator.deploymentApiInstance.list_deployment_for_all_namespaces)
@@ -73,7 +74,7 @@ def main():
 
 
         #Controller.  All "watchers" fed into Controller to process queues.
-        controller = Controller(rwCoordinator, deployment_watcher, cr_watcher, serviceaccount_watcher, clusterrole_watcher, clusterrolebinding_watcher)
+        controller = Controller(rwCRD, rwCoordinator, deployment_watcher, cr_watcher, serviceaccount_watcher, clusterrole_watcher, clusterrolebinding_watcher)
         controller.start()
         
         cr_watcher.start()

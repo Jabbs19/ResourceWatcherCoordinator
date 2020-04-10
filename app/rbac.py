@@ -30,24 +30,30 @@ def create_quick_clusterrole_definition(clusterRoleName, rules, annotationsDict=
     return clusterRole
 
 
-def create_clusterrole(authorizedClient, crBody):
+def create_clusterrole(apiInstance, crBody):
 
-    apiInstance = build_api_instance(authorizedClient)
-    api_response = apiInstance.create_cluster_role(body=crBody)
+    try:
+        api_response = apiInstance.create_cluster_role(body=crBody)
+    except ApiException as e:
+        logger.error("Clusterrole not created. [CREATE] Error: %s\n" % e)
 
-def update_clusterrole(authorizedClient, crName, crBody):
-    apiInstance = build_api_instance(authorizedClient)
-    api_response = apiInstance.patch_cluster_role(name=crName,body=crBody)
+def update_clusterrole(apiInstance, crName, crBody):
+    try:
+        api_response = apiInstance.patch_cluster_role(name=crName,body=crBody)
+    except ApiException as e:
+        logger.error("Clusterrole not patched. [Clusterrole: " + crName + "] [PATCH] Error: %s\n" % e)
 
-def delete_clusterrole(authorizedClient, crName):
-    apiInstance = build_api_instance(authorizedClient)
+def delete_clusterrole(apiInstance, crName):
+        
     deleteBody = client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
-    api_response = apiInstance.delete_cluster_role_binding(name=crName, body=deleteBody)
-
-def check_for_clusterrole(authorizedClient, crName):
     try:
-        apiInstance = build_api_instance(authorizedClient)
+        api_response = apiInstance.delete_cluster_role_binding(name=crName, body=deleteBody)
+    except ApiException as e:
+        logger.error("Clusterrole not deleted. [Clusterrole: " + crName + "] [DELETE] Error: %s\n" % e)
+
+def check_for_clusterrole(apiInstance, crName):
+    try:
         api_response = apiInstance.read_cluster_role(name=crName)
         return True
     except ApiException as e:
@@ -75,24 +81,21 @@ def create_quick_clusterrolebinding_definition(clusterRoleBindingName, clusterRo
     )
     return clusterRoleBinding    
 
-def create_clusterrolebinding(authorizedClient, crBindingBody):
+def create_clusterrolebinding(apiInstance, crBindingBody):
     try:
-        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.create_cluster_role_binding(body=crBindingBody)
     except ApiException as e:
         logger.error("Clusterrolebinding not created. [ClusterroleBinding] [CREATE] Error: %s\n" % e)
         logger.error("Clusterrolebinding YAML: " + str(crBindingBody))
 
-def update_clusterrolebinding(authorizedClient, crBindingName, crBindingBody):
+def update_clusterrolebinding(apiInstance, crBindingName, crBindingBody):
     try:
-        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.patch_cluster_role_binding(name=crBindingName,body=crBindingBody)
     except ApiException as e:
         logger.error("Clusterrolebinding not patched. [ClusterroleBinding: " + crBindingName + "] [PATCH] Error: %s\n" % e)
 
-def delete_clusterrolebinding(authorizedClient, crBindingName):
+def delete_clusterrolebinding(apiInstance, crBindingName):
     try:
-        apiInstance = build_api_instance(authorizedClient)
         deleteBody = client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
         api_response = apiInstance.delete_cluster_role_binding(name=crBindingName, body=deleteBody)
@@ -100,9 +103,8 @@ def delete_clusterrolebinding(authorizedClient, crBindingName):
     except ApiException as e:
         logger.error("Clusterrolebinding not deleted. [ClusterroleBinding: " + crBindingName + "] [DELETE] Error: %s\n" % e)
 
-def check_for_clusterrolebinding(authorizedClient, crBindingName):
+def check_for_clusterrolebinding(apiInstance, crBindingName):
     try:
-        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.read_cluster_role_binding(name=crBindingName)
         return True
     except ApiException as e:

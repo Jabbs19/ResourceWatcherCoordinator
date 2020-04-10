@@ -185,21 +185,21 @@ class Controller(threading.Thread):
         else:
 
             #Load the operand and whether or not we should continue.
-            rwOperand, should_event_be_processed = load_configuration_object(self.coordinatorObject.authorizedClient, object_key, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural)
+            rwOperand, should_event_be_processed = load_configuration_object(object_key, self.crdObject, self.coordinatorObject)
 
             
             if should_event_be_processed:
                 logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                         "ResourceWatcher found."))            
 
-                rw = resourceWatcher( rwOperand, self.coordinatorObject)
+                rw = resourceWatcher(rwOperand)
 
                 # Check to see if it's been "marked for deletion"
-                if check_marked_for_delete(self.coordinatorObject.authorizedClient, object_key, self.coordinatorObject.customGroup, self.coordinatorObject.customVersion, self.coordinatorObject.customPlural):
+                if check_marked_for_delete(self.coordinatorObject.authorizedClient, object_key, self.crdObject.customGroup, self.crdObject.customVersion, self.crdObject.customPlural):
                     logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                             "ResourceWacher marked for deletion."))  
 
-                    rw.process_marked_for_deletion(object_key)
+                    process_marked_for_deletion(object_key, self.crdObject, self.coordinatorObject, rw)
 
                 else:
 
@@ -207,13 +207,13 @@ class Controller(threading.Thread):
                         logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                             "Event found.")) 
                         
-                        rw.process_added_event(object_key)
+                        process_added_event(object_key, self.crdObject, self.coordinatorObject, rw)
 
                     elif eventType in ['MODIFIED']:
                         logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                             "Event found.")) 
 
-                        rw.process_modified_event(object_key)
+                        rw.process_modified_event(object_key, self.crdObject, self.coordinatorObject, rw)
                     else:
                         logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                             "Event found, but did not match any filters."))                        
