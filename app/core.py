@@ -44,10 +44,9 @@ def delete_serviceaccount(authorizedClient, saName, saNamespace):
 
     try:
         apiInstance = build_api_instance(authorizedClient)
-        #deleteBody = kubernetes.client.V1DeleteOptions() # V1DeleteOptions |  (optional)
+        deleteBody = kubernetes.client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
-        #api_response = api_instance.delete_cluster_role_binding(name=crName, body=deleteBody)
-        api_response = apiInstance.delete_namespaced_service_account(name=saName, namespace=saNamespace)
+        api_response = apiInstance.delete_cluster_role_binding(name=saName, body=deleteBody)
     except ApiException as e:
         logger.error("ServiceAccount not deleted. [ServiceAccount: " + saName + "] [DELETE] Error: %s\n" % e)
 

@@ -41,10 +41,9 @@ def update_clusterrole(authorizedClient, crName, crBody):
 
 def delete_clusterrole(authorizedClient, crName):
     apiInstance = build_api_instance(authorizedClient)
-    #deleteBody = kubernetes.client.V1DeleteOptions() # V1DeleteOptions |  (optional)
+    deleteBody = kubernetes.client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
-    #api_response = api_instance.delete_cluster_role_binding(name=crName, body=deleteBody)
-    api_response = apiInstance.delete_cluster_role(name=crName)
+    api_response = apiInstance.delete_cluster_role_binding(name=crName, body=deleteBody)
 
 def check_for_clusterrole(authorizedClient, crName):
     try:

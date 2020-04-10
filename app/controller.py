@@ -19,7 +19,7 @@ class Controller(threading.Thread):
        calls to Kubernetes API.
     """
 
-    def __init__(self, coordinatorObject, deployment_watcher, config_watcher, serviceaccount_watcher, clusterrole_watcher, clusterroleibnding_watcher,workqueue_size=10):
+    def __init__(self, coordinatorObject, deployment_watcher, config_watcher, serviceaccount_watcher, clusterrole_watcher, clusterroleibnding_watcher,workqueue_size=25):
         """Initializes the controller.
 
         :param deploy_watcher: Watcher for pods events.
