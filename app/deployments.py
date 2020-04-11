@@ -9,6 +9,43 @@ from kubernetes.client.rest import ApiException
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 
+class deployment():
+    def __init__(self, deploymentName, image, serviceAccount=None, deployPorts=None):
+        self.deploymentName = deploymentName
+        self.deployImage = image
+        self.serviceAccount = serviceAccount
+        self.deployPorts = deployPorts
+
+    def _fetch_deployment_definition(self, deploymentName, deployImage, deployPorts, serviceAccount):
+        # Configureate Pod template container
+            container = client.V1Container(
+                name=self.deploymentName,
+                image=self.deployImage,
+                ports=[client.V1ContainerPort(container_port=self.deployPorts)]
+            )
+            # Create and configurate a spec section
+            template = client.V1PodTemplateSpec(
+                metadata=client.V1ObjectMeta(labels={"app": self.deploymentName}),
+                spec=client.V1PodSpec(service_account_name=self.serviceAccount,
+                                    containers=[container]))
+
+    # # Create and configurate a spec section
+    #         template = client.V1PodTemplateSpec(
+    #             metadata=client.V1ObjectMeta(labels={"app": self.watcherApplicationName}),
+    #             spec=client.V1PodSpec(containers=[container]))            
+            # Create the specification of deployment
+            spec = client.V1DeploymentSpec(
+                replicas=1,
+                template=template,
+                selector={'matchLabels': {'app': self.deploymentName}})
+            # Instantiate the deployment object
+            deployment = client.V1Deployment(
+                api_version="apps/v1",
+                kind="Deployment",
+                metadata=client.V1ObjectMeta(name= self.deploymentName),
+                spec=spec)
+            return deployment
+
 def build_api_instance(authorizedClient):
     apiInstance = client.AppsV1Api(authorizedClient)
     return apiInstance
