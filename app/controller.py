@@ -161,7 +161,7 @@ class Controller(threading.Thread):
     def _process_event(self, object_key):
         """Make changes to go from current state to desired state and updates
            object status."""
-        logger.info("Event Found: {:s}".format(object_key))
+        logger.info("Event Pulled from Queue: {:s}".format(object_key))
         eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
         if eventType in ['DELETED']:
