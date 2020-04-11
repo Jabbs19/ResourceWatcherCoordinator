@@ -86,7 +86,7 @@ class Controller(threading.Thread):
         except:
             eventObject = event['object']['kind']
 
-        annotationValue = get_annotation_value(self.coordinatorObject.annotationFilterKey, annotationsDict)
+        annotationValue = filter_for_annotation_value(self.coordinatorObject.childAnnotationFilterKey, annotationsDict)
 
         if annotationValue == None:
             annotationValue = "NONE"

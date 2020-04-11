@@ -45,6 +45,8 @@ class coordinator():
         self.rbacAPI = client.RbacAuthorizationV1Api(authorizedClient) 
         self.rbacAPIfilter = {'eventTypesList': ['MODIFIED']}
 
+        self.childAnnotationFilterKey = "resourceWatcher-application-name"
+
     
         #Maybe not needed
         self.authorizedClient = authorizedClient
@@ -52,75 +54,8 @@ class coordinator():
         self.annotationFilterValue = "resource-watcher-service"   #Optional?
 
 
-
-
-#
-#Global Functions for Operators  
-#
-#  
-
-def get_annotation_value(annotationFilterKey, annotationDict):
-
-    try:
-        annotationValue = annotationDict.get(annotationFilterKey, "")
-    except:
-        annotationValue = None
-        
-    if annotationValue:
-        return annotationValue
-    else:
-        return None
-
-
-def check_marked_for_delete(object_key, crdObject, rwCoordinatorObject, *args, **kwargs):
-    eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
-
-    if eventObject == 'ResourceWatcher':
-        operandName = objectName
-        try:
-            operandBody = get_custom_resource(rwCoordinatorObject.customApiInstance, operandName, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
-            if (operandBody['metadata']['deletionTimestamp'] != ""):
-                return True
-            else:
-                return False
-
-        except:
-            return False
-    else:
-        return False
-    
-
-def load_configuration_object(object_key, crdObject, rwCoordinatorObject, *args, **kwargs):
-    try:
-        eventType, eventObject, objectName, objectNamespace, annotation = object_key.split("~~")
-        #watcherConfigExist = check_for_custom_resource(objectName, *self.func_args, **self.func_kwargs) self.customAPI, self.customGroup, self.customVersion, self.customPlural, objectName)
-        
-        #List the monitored objects that you want to use annotations to "trigger" events
-        if eventObject in ['ServiceAccount','ClusterRole','ClusterRoleBinding']:
-            lookupValue = annotation
-        elif eventObject in ['Deployment','ResourceWatcher']:
-            lookupValue = objectName
-        print("lookupValue: " + lookupValue)
-        try:
-            rwOperand = get_custom_resource(rwCoordinatorObject.customApiInstance, lookupValue, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
-        except:
-            rwOperand = None
-
-        if rwOperand:
-            return rwOperand, True
-        else:
-            return None, False
-
-    except ApiException as e:
-        logger.info("No Object Found for 'should event be processed': {:s}".format(object_key))
-        logger.error("Error:" + e)
-        return None, False
-
-
-
-
 class resourceWatcher():
-    def __init__(self, crOperand):
+    def __init__(self, crOperand, parentAnnotationFilterKey):
 
         self.resourceWatcherName = crOperand['metadata']['name']
         self.deployNamespace = crOperand['spec']['deployNamespace']
@@ -135,8 +70,8 @@ class resourceWatcher():
         self.serviceAccountName = self.resourceWatcherName + '-sa'
         self.clusterRoleName = self.resourceWatcherName + '-clusterrole'
         self.clusterRoleBindingName = self.resourceWatcherName + '-clusterrolebinding'
-        self.annotationFilterKey = "resourceWatcherParent"
-        self.annotationFilterFinalDict = {"resourceWatcherParent":self.resourceWatcherName}
+        self.parentAnnotationFilterKey = parentAnnotationFilterKey
+        self.annotationFilterFinalDict = {self.parentAnnotationFilterKey:self.resourceWatcherName}
 
         # #Annotation Creation
         # try:
@@ -193,6 +128,54 @@ class resourceWatcher():
             spec=spec)
         return deployment
 
+
+
+#
+#Global Functions for Operators  
+#
+#  
+
+def filter_for_annotation_value(annotationFilterKey, annotationDict):
+
+    try:
+        annotationValue = annotationDict.get(annotationFilterKey, "")
+    except:
+        annotationValue = None
+        
+    if annotationValue:
+        return annotationValue
+    else:
+        return None
+
+
+
+def load_configuration_object(object_key, crdObject, rwCoordinatorObject, *args, **kwargs):
+    try:
+        eventType, eventObject, objectName, objectNamespace, annotation = object_key.split("~~")
+        #watcherConfigExist = check_for_custom_resource(objectName, *self.func_args, **self.func_kwargs) self.customAPI, self.customGroup, self.customVersion, self.customPlural, objectName)
+        
+        #List the monitored objects that you want to use annotations to "trigger" events
+        if eventObject in ['ServiceAccount','ClusterRole','ClusterRoleBinding']:
+            lookupValue = annotation
+        elif eventObject in ['Deployment','ResourceWatcher']:
+            lookupValue = objectName
+        print("lookupValue: " + lookupValue)
+        try:
+            rwOperand = get_custom_resource(rwCoordinatorObject.customApiInstance, lookupValue, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
+        except:
+            rwOperand = None
+
+        if rwOperand:
+            return rwOperand, True
+        else:
+            return None, False
+
+    except ApiException as e:
+        logger.info("No Object Found for 'should event be processed': {:s}".format(object_key))
+        logger.error("Error:" + e)
+        return None, False
+
+
 def remove_finalizer(object_key, crdObject, rwCoordinatorObject, rwName):
     eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
@@ -210,6 +193,24 @@ def remove_finalizer(object_key, crdObject, rwCoordinatorObject, rwName):
         api_response = patch_custom_resource(rwCoordinatorObject.customApiInstance, crdObject.customGroup, crdObject.customVersion, crdObject.customPlural, rwName, noFinalizerBody)
     except ApiException as e:
         logger.error("Finalizer Not removed. [ResourceWatcherName: " + rwName + "] Error: %s\n" % e)
+
+
+def check_marked_for_delete(object_key, crdObject, rwCoordinatorObject, *args, **kwargs):
+    eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
+
+    if eventObject == 'ResourceWatcher':
+        operandName = objectName
+        try:
+            operandBody = get_custom_resource(rwCoordinatorObject.customApiInstance, operandName, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
+            if (operandBody['metadata']['deletionTimestamp'] != ""):
+                return True
+            else:
+                return False
+
+        except:
+            return False
+    else:
+        return False
     
 
 def process_marked_for_deletion(object_key, crdObject, rwCoordinatorObject, rwObject, *args, **kwargs):
