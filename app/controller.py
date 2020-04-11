@@ -204,7 +204,7 @@ class Controller(threading.Thread):
                         logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                             "Event found.")) 
 
-                        rw.process_modified_event(object_key, self.crdObject, self.coordinatorObject, rw)
+                        process_modified_event(object_key, self.crdObject, self.coordinatorObject, rw)
                     else:
                         logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                             "Event found, but did not match any filters."))                        
