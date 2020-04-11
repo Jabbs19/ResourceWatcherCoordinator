@@ -134,7 +134,11 @@ class resourceWatcher():
 #Global Functions for Operators  
 #
 #  
+def get_custom_event_data(event,key):
+    if key == 'Namespace':
+        return event['object']['spec']['deployNamespace']
 
+    
 def filter_for_annotation_value(annotationFilterKey, annotationDict):
 
     try:

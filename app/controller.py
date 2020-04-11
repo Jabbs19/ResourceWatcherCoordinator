@@ -98,33 +98,17 @@ class Controller(threading.Thread):
         self._queue_work(eventType + "~~" + eventObject + "~~" + objectName + "~~" + objectNamespace + "~~" + annotationValue )
 
 
-    def _handle_deploy_event(self, event):
-        """Handle an event from the deployment.  Send to `workqueue`. """
-        #logging.info("Event Found: %s %s %s" % (event['type'], event['object'].kind, event['object'].metadata.name)) 
-
-        eventType = event['type']
-        #eventObject = event['object']['kind']
-        eventObject = event['object'].kind
-        #name = event['object']['metadata']['name']
-        deploymentName = event['object'].metadata.name
-        #deployNamespace = event['object']['metadata']['namespace']
-        deploymentNamespace = event['object'].metadata.namespace
-        annotationValue = 'nothing yet'
-        
-        self._queue_work(eventType + "~~" + eventObject + "~~" + deploymentName + "~~" + deploymentNamespace + "~~" + annotationValue )
-        #self._queue_work(name)
-
-    def _handle_watcherConfig_event(self, event):
+    def _handle_custom_object_event(self, event):
         """Handle an event from the watcherConfig.  Send to `workqueue`."""
-
+        
         eventType = event['type']
         eventObject = event['object']['kind']
-        resourceWatcherName = event['object']['metadata']['name']
+        customObjectName = event['object']['metadata']['name']
         #M
-        resourceWatcherDeployedNamespace = event['object']['spec']['deployNamespace']
+        customObjectNamespace = get_custom_event_data(event,'Namespace')
         annotationValue = 'nothing yet'
 
-        self._queue_work(eventType + "~~" + eventObject + "~~" + resourceWatcherName + "~~" + resourceWatcherDeployedNamespace + "~~" + annotationValue )
+        self._queue_work(eventType + "~~" + eventObject + "~~" + customObjectName + "~~" + customObjectNamespace + "~~" + annotationValue )
        # self._queue_work(name)
 
     def _queue_work(self, object_key):
