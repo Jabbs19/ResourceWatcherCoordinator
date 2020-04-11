@@ -20,6 +20,7 @@ def create_quick_clusterrole_definition(clusterRoleName, rules, annotationsDict=
         resources=[""],
         verbs=[""]
     )
+    print("CR Rules: " + str(crRules))
     clusterRole = client.V1ClusterRole(
         api_version="rbac.authorization.k8s.io/v1",
         kind="ClusterRole",
