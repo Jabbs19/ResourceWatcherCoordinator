@@ -195,7 +195,7 @@ class Controller(threading.Thread):
                 rw = resourceWatcher(rwOperand)
 
                 # Check to see if it's been "marked for deletion"
-                if check_marked_for_delete(self.coordinatorObject.authorizedClient, object_key, self.crdObject.customGroup, self.crdObject.customVersion, self.crdObject.customPlural):
+                if check_marked_for_delete(object_key, self.crdObject, self.coordinatorObject):
                     logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][EventType: %s][Annotation: %s][Message: %s]" % (eventObject, objectName, objectNamespace, eventType, annotationValue,
                             "ResourceWacher marked for deletion."))  
 

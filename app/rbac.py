@@ -48,7 +48,7 @@ def delete_clusterrole(apiInstance, crName):
     deleteBody = client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
     try:
-        api_response = apiInstance.delete_cluster_role_binding(name=crName, body=deleteBody)
+        api_response = apiInstance.delete_cluster_role(name=crName, body=deleteBody)
     except ApiException as e:
         logger.error("Clusterrole not deleted. [Clusterrole: " + crName + "] [DELETE] Error: %s\n" % e)
 

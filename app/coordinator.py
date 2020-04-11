@@ -45,7 +45,6 @@ class coordinator():
         self.rbacAPI = client.RbacAuthorizationV1Api(authorizedClient) 
         self.rbacAPIfilter = {'eventTypesList': ['MODIFIED']}
 
-        self.annotationFilterKey = "resourceWatcherParent"
     
         #Maybe not needed
         self.authorizedClient = authorizedClient
@@ -79,7 +78,7 @@ def check_marked_for_delete(object_key, crdObject, rwCoordinatorObject, *args, *
     if eventObject == 'ResourceWatcher':
         operandName = objectName
         try:
-            operandBody = get_custom_resource(rwCoordinatorObject.deploymentApiInstance, operandName, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
+            operandBody = get_custom_resource(rwCoordinatorObject.customApiInstance, operandName, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
             if (operandBody['metadata']['deletionTimestamp'] != ""):
                 return True
             else:
@@ -91,9 +90,6 @@ def check_marked_for_delete(object_key, crdObject, rwCoordinatorObject, *args, *
         return False
     
 
-
-
-
 def load_configuration_object(object_key, crdObject, rwCoordinatorObject, *args, **kwargs):
     try:
         eventType, eventObject, objectName, objectNamespace, annotation = object_key.split("~~")
@@ -104,9 +100,9 @@ def load_configuration_object(object_key, crdObject, rwCoordinatorObject, *args,
             lookupValue = annotation
         elif eventObject in ['Deployment','ResourceWatcher']:
             lookupValue = objectName
-
+        print("lookupValue: " + lookupValue)
         try:
-            rwOperand = get_custom_resource(rwCoordinatorObject.deploymentApiInstance, lookupValue, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
+            rwOperand = get_custom_resource(rwCoordinatorObject.customApiInstance, lookupValue, crdObject.customGroup,crdObject.customVersion, crdObject.customPlural)
         except:
             rwOperand = None
 
@@ -139,17 +135,20 @@ class resourceWatcher():
         self.serviceAccountName = self.resourceWatcherName + '-sa'
         self.clusterRoleName = self.resourceWatcherName + '-clusterrole'
         self.clusterRoleBindingName = self.resourceWatcherName + '-clusterrolebinding'
-        #Annotation Creation
-        try:
-            # annotationString = {}
-            #     self.crdObject.annotationFilterKey
-            # }
-            # annotationDict = json.loads(self.crdObject.annotationFilterKey+":"+self.resourceWatcherName) 
-            annotationDict = {self.crdObject.annotationFilterKey:self.resourceWatcherName}
-        except:
-            annotationDict = None
-            print('annotation creation did not work')
-        self.annotationStringForCreation = annotationDict
+        self.annotationFilterKey = "resourceWatcherParent"
+        self.annotationFilterFinalDict = {"resourceWatcherParent":self.resourceWatcherName}
+
+        # #Annotation Creation
+        # try:
+        #     # annotationString = {}
+        #     #     self.crdObject.annotationFilterKey
+        #     # }
+        #     # annotationDict = json.loads(self.crdObject.annotationFilterKey+":"+self.resourceWatcherName) 
+        #     annotationDict = {self.crdObject.annotationFilterKey:self.resourceWatcherName}
+        # except:
+        #     annotationDict = None
+        #     print('annotation creation did not work')
+        # self.annotationFilterFinalDict = annotationDict
  
 
     def _build_deployment_definition(self):
@@ -190,25 +189,27 @@ class resourceWatcher():
         deployment = client.V1Deployment(
             api_version="apps/v1",
             kind="Deployment",
-            metadata=client.V1ObjectMeta(name= self.resourceWatcherName,annotations=self.annotationStringForCreation),
+            metadata=client.V1ObjectMeta(name= self.resourceWatcherName,annotations=self.annotationFilterFinalDict),
             spec=spec)
         return deployment
 
-def remove_finalizer(rwName, crdObject):
-        #Build Body to pass to customresources.patch
-        noFinalizerBody = {
-        "apiVersion": crdObject.customGroup + '/' + crdObject.customVersion,
-        "kind": crdObject.customKind,
-        "metadata": {
-            "name": rwName,
-            "finalizers": []
-                    }
-        }
-        try:
-            print("noFinalizerBody:" + str(noFinalizerBody))
-            api_response = patch_custom_resource(crdObject.authorizedClient, crdObject.customGroup, crdObject.customVersion, crdObject.customPlural, rwName, noFinalizerBody)
-        except ApiException as e:
-            logger.error("Finalizer Not removed. [ResourceWatcherName: " + rwName + "] Error: %s\n" % e)
+def remove_finalizer(object_key, crdObject, rwCoordinatorObject, rwName):
+    eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
+
+    #Build Body to pass to customresources.patch
+    noFinalizerBody = {
+    "apiVersion": crdObject.customGroup + '/' + crdObject.customVersion,
+    "kind": crdObject.customKind,
+    "metadata": {
+        "name": rwName,
+        "finalizers": []
+                }
+    }
+    try:
+        print("noFinalizerBody:" + str(noFinalizerBody))
+        api_response = patch_custom_resource(rwCoordinatorObject.customApiInstance, crdObject.customGroup, crdObject.customVersion, crdObject.customPlural, rwName, noFinalizerBody)
+    except ApiException as e:
+        logger.error("Finalizer Not removed. [ResourceWatcherName: " + rwName + "] Error: %s\n" % e)
     
 
 def process_marked_for_deletion(object_key, crdObject, rwCoordinatorObject, rwObject, *args, **kwargs):
@@ -234,14 +235,14 @@ def process_marked_for_deletion(object_key, crdObject, rwCoordinatorObject, rwOb
         logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
         "ServiceAccount Deleted")) 
 
-    remove_finalizer(rwObject.resourceWatcherName, crdObject)
+    remove_finalizer(object_key, crdObject, rwCoordinatorObject, objectName)
 
     
-def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
+def process_modified_event(object_key, crdObject, rwCoordinatorObject, rwObject, *args, **kwargs):
     eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
     if eventObject == 'ServiceAccount':
-        saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationStringForCreation)
+        saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_serviceaccount(rwCoordinatorObject.coreAPI,rwObject.serviceAccountName,rwObject.deployNamespace) == True:
             update_serviceaccount(rwCoordinatorObject.coreAPI, rwObject.serviceAccountName,rwObject.deployNamespace, saBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -252,7 +253,7 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
                         "Service Account Created")) 
 
     if eventObject == 'ClusterRole':
-        clusterroleBody = create_quick_clusterrole_definition(rwObject.clusterRoleName, 'rules not implemented yet', rwObject.annotationStringForCreation)
+        clusterroleBody = create_quick_clusterrole_definition(rwObject.clusterRoleName, 'rules not implemented yet', rwObject.annotationFilterFinalDict)
         if check_for_clusterrole(rwCoordinatorObject.rbacAPI,rwObject.clusterRoleName) == True:
             update_clusterrole(rwCoordinatorObject.rbacAPI, rwObject.clusterRoleName, clusterroleBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -264,7 +265,7 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
                         "ClusterRole Updated")) 
                         
     if eventObject == 'ClusterRoleBinding':
-        crBindingBody = create_quick_clusterrolebinding_definition(rwObject.clusterRoleBindingName,rwObject.clusterRoleName,rwObject.serviceAccountName,rwObject.deployNamespace, rwObject.annotationStringForCreation)
+        crBindingBody = create_quick_clusterrolebinding_definition(rwObject.clusterRoleBindingName,rwObject.clusterRoleName,rwObject.serviceAccountName,rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_clusterrolebinding(rwCoordinatorObject.rbacAPI,rwObject.clusterRoleBindingName) == True:
             update_clusterrolebinding(rwCoordinatorObject.rbacAPI, rwObject.clusterRoleBindingName,     crBindingBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -276,7 +277,7 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
                                         
 
     if eventObject == 'Deployment':
-        deployBody = self._build_deployment_definition()
+        deployBody = rwObject._build_deployment_definition()
         if check_for_deployment(rwCoordinatorObject.deploymentApiInstance,rwObject.resourceWatcherName, rwObject.deployNamespace) == True:
             update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, objectName, rwObject.deployNamespace)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -290,7 +291,7 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
 
     if eventObject == 'ResourceWatcher':
         #Deploy All
-        saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationStringForCreation)
+        saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_serviceaccount(rwCoordinatorObject.coreAPI,rwObject.serviceAccountName,rwObject.deployNamespace) == True:
             update_serviceaccount(rwCoordinatorObject.coreAPI, rwObject.serviceAccountName,rwObject.deployNamespace, saBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -300,7 +301,7 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
                         "Service Account Created")) 
 
-        clusterroleBody = create_quick_clusterrole_definition(rwObject.clusterRoleName, 'rules not implemented yet', rwObject.annotationStringForCreation)
+        clusterroleBody = create_quick_clusterrole_definition(rwObject.clusterRoleName, 'rules not implemented yet', rwObject.annotationFilterFinalDict)
         if check_for_clusterrole(rwCoordinatorObject.rbacAPI,rwObject.clusterRoleName) == True:
             update_clusterrole(rwCoordinatorObject.rbacAPI, rwObject.clusterRoleName, clusterroleBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -311,7 +312,7 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
                         "ClusterRole Updated")) 
                         
-        crBindingBody = create_quick_clusterrolebinding_definition(rwObject.clusterRoleBindingName,rwObject.clusterRoleName,rwObject.serviceAccountName,rwObject.deployNamespace, rwObject.annotationStringForCreation)
+        crBindingBody = create_quick_clusterrolebinding_definition(rwObject.clusterRoleBindingName,rwObject.clusterRoleName,rwObject.serviceAccountName,rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_clusterrolebinding(rwCoordinatorObject.rbacAPI,rwObject.clusterRoleBindingName) == True:
             update_clusterrolebinding(rwCoordinatorObject.rbacAPI, rwObject.clusterRoleBindingName,     crBindingBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -322,7 +323,7 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
                         "ClusterRoleBinding Updated")) 
                                         
 
-        deployBody = self._build_deployment_definition()
+        deployBody = rwObject._build_deployment_definition()
         if check_for_deployment(rwCoordinatorObject.deploymentApiInstance,rwObject.resourceWatcherName, rwObject.deployNamespace) == True:
             update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, objectName, rwObject.deployNamespace)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -334,13 +335,13 @@ def process_modified_event(object_key, crdObject, rwObject, *args, **kwargs):
                         "Deployment Updated")) 
 
     
-def process_added_event(object_key, crdObject, rwObject, *args, **kwargs):
+def process_added_event(object_key, crdObject, rwCoordinatorObject, rwObject, *args, **kwargs):
     eventType, eventObject, objectName, objectNamespace, annotationValue = object_key.split("~~")
 
 
     if eventObject == 'ResourceWatcher':
     #Deploy All
-        saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationStringForCreation)
+        saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_serviceaccount(rwCoordinatorObject.coreAPI,rwObject.serviceAccountName,rwObject.deployNamespace) == True:
             update_serviceaccount(rwCoordinatorObject.coreAPI, rwObject.serviceAccountName,rwObject.deployNamespace, saBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -350,7 +351,7 @@ def process_added_event(object_key, crdObject, rwObject, *args, **kwargs):
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
                         "Service Account Created")) 
 
-        clusterroleBody = create_quick_clusterrole_definition(rwObject.clusterRoleName, 'rules not implemented yet', rwObject.annotationStringForCreation)
+        clusterroleBody = create_quick_clusterrole_definition(rwObject.clusterRoleName, 'rules not implemented yet', rwObject.annotationFilterFinalDict)
         if check_for_clusterrole(rwCoordinatorObject.rbacAPI,rwObject.clusterRoleName) == True:
             update_clusterrole(rwCoordinatorObject.rbacAPI, rwObject.clusterRoleName, clusterroleBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -361,7 +362,7 @@ def process_added_event(object_key, crdObject, rwObject, *args, **kwargs):
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
                         "ClusterRole Updated")) 
                         
-        crBindingBody = create_quick_clusterrolebinding_definition(rwObject.clusterRoleBindingName,rwObject.clusterRoleName,rwObject.serviceAccountName,rwObject.deployNamespace, rwObject.annotationStringForCreation)
+        crBindingBody = create_quick_clusterrolebinding_definition(rwObject.clusterRoleBindingName,rwObject.clusterRoleName,rwObject.serviceAccountName,rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_clusterrolebinding(rwCoordinatorObject.rbacAPI,rwObject.clusterRoleBindingName) == True:
             update_clusterrolebinding(rwCoordinatorObject.rbacAPI, rwObject.clusterRoleBindingName,     crBindingBody)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 
@@ -372,7 +373,7 @@ def process_added_event(object_key, crdObject, rwObject, *args, **kwargs):
                         "ClusterRoleBinding Updated")) 
                                         
 
-        deployBody = self._build_deployment_definition()
+        deployBody = rwObject._build_deployment_definition()
         if check_for_deployment(rwCoordinatorObject.deploymentApiInstance,rwObject.resourceWatcherName, rwObject.deployNamespace) == True:
             update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, objectName, rwObject.deployNamespace)
             logger.info("[ObjectType: %s][ObjectName: %s][Namespace: %s][Message: %s]" % (eventObject, objectName, objectNamespace, 

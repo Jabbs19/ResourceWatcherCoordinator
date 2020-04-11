@@ -13,8 +13,7 @@ def build_api_instance(authorizedClient):
     apiInstance = client.CustomObjectsApi(authorizedClient)
     return apiInstance
 
-def check_for_custom_resource(authorizedClient, operandName, customGroup, customVersion, customPlural):
-    apiInstance = build_api_instance(authorizedClient)
+def check_for_custom_resource(apiInstance, operandName, customGroup, customVersion, customPlural):
 
     try:
         api_response = apiInstance.get_cluster_custom_object(customGroup, customVersion, customPlural, operandName)
@@ -27,8 +26,7 @@ def check_for_custom_resource(authorizedClient, operandName, customGroup, custom
         logger.info("CustomResource not found. No error, just return False.")
 
 
-def get_custom_resource(authorizedClient, operandName, customGroup, customVersion, customPlural ):
-    apiInstance = build_api_instance(authorizedClient)
+def get_custom_resource(apiInstance, operandName, customGroup, customVersion, customPlural ):
 
     try:
         api_response = apiInstance.get_cluster_custom_object(customGroup, customVersion, customPlural, operandName)
@@ -36,11 +34,9 @@ def get_custom_resource(authorizedClient, operandName, customGroup, customVersio
     except ApiException as e:
         logger.error("CustomResource not found. [CustomResource: " + operandName + "] [GET] Error: %s\n" % e)
 
-def patch_custom_resource(authorizedClient, customGroup, customVersion, customPlural, operandName, operandBody):
+def patch_custom_resource(apiInstance, customGroup, customVersion, customPlural, operandName, operandBody):
     
-
     try:
-        apiInstance = build_api_instance(authorizedClient)
         api_response = apiInstance.patch_cluster_custom_object(customGroup, 
                                                         customVersion, 
                                                         customPlural, 
