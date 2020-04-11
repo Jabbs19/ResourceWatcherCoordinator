@@ -38,9 +38,13 @@ class Controller(threading.Thread):
         # must be reconciled
         self.workqueue = queue.Queue(workqueue_size)
         self.deployment_watcher = deployment_watcher
-        self.deployment_watcher.add_handler(self._handle_deploy_event)
+        #self.deployment_watcher.add_handler(self._handle_deploy_event)
+        self.deployment_watcher.add_handler(self._handle_agnostic_event)
+
         self.config_watcher = config_watcher
-        self.config_watcher.add_handler(self._handle_watcherConfig_event)
+        #self.config_watcher.add_handler(self._handle_watcherConfig_event)
+        self.config_watcher.add_handler(self._handle_agnostic_event)
+
 
         #To Add
         self.serviceaccount_watcher = serviceaccount_watcher
