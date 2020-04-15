@@ -53,10 +53,12 @@ def build_api_instance(authorizedClient):
 def create_deployment(apiInstance, deploymentBody, deploymentNamespace):
     # Create deployement
     try:
+        print(str(deploymentBody))
         api_response = apiInstance.create_namespaced_deployment(body=deploymentBody,namespace=deploymentNamespace)
         logger.info("Deployment Created [" + api_response.metadata.name +"]")
     except ApiException as e:
-        logger.error("Deployment not created. [Deployment: " + api_response.metadata.name + "][CREATE] Error: %s\n" % e)
+
+        logger.error("Deployment not created. [Deployment] [CREATE] Error: %s\n" % e)
 
 
 def update_deployment(apiInstance, deploymentBody, deploymentName, deploymentNamespace):

@@ -38,6 +38,8 @@ spec:
                   type: array
                   items:
                     type: string
+                eventTypeFilterString:
+                  type: string
   scope: Cluster
   names:
     plural: resourcewatchers

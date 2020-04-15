@@ -107,8 +107,15 @@ class resourceWatcher():
         self.k8sApiVersion = crOperand['spec']['k8sApiVersion']
         self.k8sApiResourceName = crOperand['spec']['k8sApiResourceName']
         self.annotationFilterKey = crOperand['spec']['annotationFilterKey']
-        self.annotationFilterValue = crOperand['spec']['annotationFilterValue']     #Still needed?
+
+
+        tempString = crOperand['spec']['eventTypeFilterString']
+        asArray = eval(tempString)
+
+        self.eventTypeFilterString = crOperand['spec']['eventTypeFilterString']
+
         self.eventTypeFilter = crOperand['spec']['eventTypeFilter']
+
 
         ####ADD to CRD and Operand
         self.k8sAPIkwArgs = '{"namespace":"resource-watcher-testnamespace"}'
@@ -128,6 +135,12 @@ class resourceWatcher():
 
     def _build_deployment_definition(self):
 
+        customCodeVolume = client.V1Volume(
+            name=self.resourceWatcherName+"-custom-code",
+            config_map=client.V1ConfigMapVolumeSource(
+                name="mj-custom-python"
+            )
+        )
         # Configureate Pod template container
         container = client.V1Container(
             name="resource-watcher",
@@ -144,20 +157,28 @@ class resourceWatcher():
                 client.V1EnvVar(name='K8S_ADDITIONAL_KWARGS',value=self.k8sAPIkwArgs),
 
                 client.V1EnvVar(name='ANNOTATION_FILTER_KEY',value=self.annotationFilterKey),
-                client.V1EnvVar(name='EVENT_TYPE_FILTER',value=self.eventTypeFilter),
+                client.V1EnvVar(name='EVENT_TYPE_FILTER',value=self.eventTypeFilterString),
                 client.V1EnvVar(name='PARENT_OPERATOR_ANNOTATION_FILTER_KEY',value=self.parentAnnotationFilterKey),
                 client.V1EnvVar(name='EVENT_ACTION',value=self.eventAction),
 
                 client.V1EnvVar(name='PATH_TO_CA',value=self.pathToCa),   #Figure out later.
                 client.V1EnvVar(name='JWT_TOKEN',value=self.jwtTokenValue)    #Figure out later.
-                ]
+                ],
+            volume_mounts=[client.V1VolumeMount(
+                name=self.resourceWatcherName+"-custom-code",
+                mount_path= "/customcode"
+                )]
         )
         # Create and configurate a spec section
         template = client.V1PodTemplateSpec(
             metadata=client.V1ObjectMeta(labels={"app": self.resourceWatcherName}),
             spec=client.V1PodSpec(service_account=self.serviceAccountName,
                                 service_account_name=self.serviceAccountName,
-                                containers=[container]))
+                                containers=[container],
+                                volumes=[customCodeVolume]
+
+                                )
+                    )
 
 # # Create and configurate a spec section
 #         template = client.V1PodTemplateSpec(
@@ -353,7 +374,7 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
 
         deployBody = rwObject._build_deployment_definition()
         if check_for_deployment(rwCoordinatorObject.deploymentApiInstance,rwObject.resourceWatcherName, rwObject.deployNamespace) == True:
-            update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, objectName, rwObject.deployNamespace)
+            update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, eventObject.objectName, rwObject.deployNamespace)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
                         "Deployment Updated")) 
                                         
@@ -404,7 +425,7 @@ def process_modified_event(eventObject, crdObject, rwCoordinatorObject, rwObject
     if eventObject.eventObjectType == 'Deployment':
         deployBody = rwObject._build_deployment_definition()
         if check_for_deployment(rwCoordinatorObject.deploymentApiInstance,rwObject.resourceWatcherName, rwObject.deployNamespace) == True:
-            update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, objectName, rwObject.deployNamespace)
+            update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, eventObject.objectName, rwObject.deployNamespace)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
                         "Deployment Updated")) 
                                         
