@@ -77,22 +77,22 @@ def create_configmap(apiInstance, cmBody, cmNamespace):
         logger.error("ConfigMap not created. [ConfigMap] [CREATE] Error: %s\n" % e)
         logger.error("ConfigMap YAML: " + str(cmBody))
 
-# def update_serviceaccount(apiInstance, saName, saNamespace, saBody):
+def update_configmap(apiInstance, cmName, cmNamespace, cmBody):
 
-#     try:
-#         api_response = apiInstance.patch_namespaced_service_account(name=saName, namespace=saNamespace, body=saBody)
-#     except ApiException as e:
-#         logger.error("ServiceAccount not patched. [ServiceAccount: " + saName + "] [PATCH] Error: %s\n" % e)
+    try:
+        api_response = apiInstance.patch_namespaced_config_map(name=cmName, namespace=cmNamespace, body=cmBody)
+    except ApiException as e:
+        logger.error("ConfigMap not patched. [ConfigMap: " + cmName + "] [PATCH] Error: %s\n" % e)
 
 
-# def delete_serviceaccount(apiInstance, saName, saNamespace):
+def delete_configmap(apiInstance, cmName, cmNamespace):
 
-#     try:
-#         deleteBody = client.V1DeleteOptions() # V1DeleteOptions |  (optional)
+    try:
+        deleteBody = client.V1DeleteOptions() # V1DeleteOptions |  (optional)
 
-#         api_response = apiInstance.delete_namespaced_service_account(name=saName, namespace=saNamespace, body=deleteBody)
-#     except ApiException as e:
-#         logger.error("ServiceAccount not deleted. [ServiceAccount: " + saName + "] [DELETE] Error: %s\n" % e)
+        api_response = apiInstance.delete_namespaced_config_map(name=cmName, namespace=cmNamespace, body=deleteBody)
+    except ApiException as e:
+        logger.error("ConfigMap not deleted. [ConfigMap: " + cmName + "] [DELETE] Error: %s\n" % e)
 
 def check_for_configmap(apiInstance, cmName, cmNamespace):
     try:

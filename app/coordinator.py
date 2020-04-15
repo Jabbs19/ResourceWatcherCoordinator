@@ -109,19 +109,17 @@ class resourceWatcher():
         self.annotationFilterKey = crOperand['spec']['annotationFilterKey']
 
 
-        tempString = crOperand['spec']['eventTypeFilterString']
-        asArray = eval(tempString)
-
+        # tempString = crOperand['spec']['eventTypeFilterString']
+        # asArray = eval(tempString)
+        self.eventTypeFilter = crOperand['spec']['eventTypeFilter']     #Deprecated in favor of straight string, which is eval'd in applicatin.
         self.eventTypeFilterString = crOperand['spec']['eventTypeFilterString']
-
-        self.eventTypeFilter = crOperand['spec']['eventTypeFilter']
 
 
         ####ADD to CRD and Operand
-        self.k8sAPIkwArgs = '{"namespace":"resource-watcher-testnamespace"}'
-        self.eventAction = 'POST'
-        self.pathToCa = '/ca/route'
-        self.jwtTokenValue = '867530999999999'
+        self.k8sAPIkwArgs = crOperand['spec']['k8sAPIkwArgs']    #'{"namespace":"resource-watcher-testnamespace"}'
+        self.eventAction = crOperand['spec']['eventAction'] 
+        self.pathToCa = crOperand['spec']['pathToCa'] 
+        self.jwtTokenValue = crOperand['spec']['jwtTokenValue'] 
 
         #Leave as "auto" or move to CRD?
         self.serviceAccountName = self.resourceWatcherName + '-sa'
@@ -314,7 +312,12 @@ def process_marked_for_deletion(eventObject, crdObject, rwCoordinatorObject, rwO
     if check_for_serviceaccount(rwCoordinatorObject.coreAPI,rwObject.serviceAccountName,rwObject.deployNamespace) == True:
         delete_serviceaccount(rwCoordinatorObject.coreAPI, rwObject.serviceAccountName, rwObject.deployNamespace)
         logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
-        "ServiceAccount Deleted")) 
+                "ServiceAccount Deleted")) 
+    
+    if check_for_configmap(rwCoordinatorObject.coreAPI,rwObject.configMapName, rwObject.deployNamespace) == True:
+        delete_configmap(rwCoordinatorObject.coreAPI, rwObject.configMapName, rwObject.deployNamespace)
+        logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
+                "ConfigMap Deleted")) 
 
     remove_finalizer(crdObject, rwCoordinatorObject, eventObject.objectName)
     
@@ -344,12 +347,13 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
         #Onetime deploy of this?  This allows others to use it from here.
         
         cmBody = create_quick_configmap_definition(rwObject.configMapName, rwObject.deployNamespace,rwObject.annotationFilterFinalDict)
-        if check_for_configmap(rwCoordinatorObject.coreAPI,rwObject.configMapName, rwObject.deployNamespace):
+        if check_for_configmap(rwCoordinatorObject.coreAPI,rwObject.configMapName, rwObject.deployNamespace) == True:
             #create_config_map(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
+           # update_configmap(rwCoordinatorObject.coreAPI, rwObject.configMapName, rwObject.deployNamespace, cmBody)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
                         "ConfigMap Already Exists")) 
         else:
-            create_config_map(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
+            create_configmap(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
                         "ConfigMap Created"))       
 
@@ -484,7 +488,7 @@ def process_modified_event(eventObject, crdObject, rwCoordinatorObject, rwObject
 
         deployBody = rwObject._build_deployment_definition()
         if check_for_deployment(rwCoordinatorObject.deploymentApiInstance,rwObject.resourceWatcherName, rwObject.deployNamespace) == True:
-            update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, objectName, rwObject.deployNamespace)
+            update_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody,  eventObject.objectName, rwObject.deployNamespace)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
                         "Deployment Updated")) 
                                         

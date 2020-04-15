@@ -127,7 +127,7 @@ class Controller(threading.Thread):
 
         if eventObject.eventType in ['DELETED']:
 
-            process_deleted_event(eventObject, self.rwObject)
+            process_deleted_event(eventObject)
 
         else:
 
