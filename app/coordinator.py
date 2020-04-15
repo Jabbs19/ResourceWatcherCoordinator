@@ -342,8 +342,16 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
     if eventObject.eventObjectType == 'ResourceWatcher':
     #Deploy All
         #Onetime deploy of this?  This allows others to use it from here.
+        
         cmBody = create_quick_configmap_definition(rwObject.configMapName, rwObject.deployNamespace,rwObject.annotationFilterFinalDict)
-        create_config_map(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
+        if check_for_configmap(rwCoordinatorObject.coreAPI,rwObject.configMapName, rwObject.deployNamespace):
+            #create_config_map(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
+            logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
+                        "ConfigMap Already Exists")) 
+        else:
+            create_config_map(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
+            logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
+                        "ConfigMap Created"))       
 
         saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_serviceaccount(rwCoordinatorObject.coreAPI,rwObject.serviceAccountName,rwObject.deployNamespace) == True:

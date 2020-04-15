@@ -69,7 +69,7 @@ def create_quick_configmap_definition(cmName, cmNamespace, annotationsDict={}):
     return configmap
 
 
-def create_config_map(apiInstance, cmBody, cmNamespace):
+def create_configmap(apiInstance, cmBody, cmNamespace):
 
     try:
         api_response = apiInstance.create_namespaced_config_map(body=cmBody, namespace=cmNamespace)
@@ -94,9 +94,9 @@ def create_config_map(apiInstance, cmBody, cmNamespace):
 #     except ApiException as e:
 #         logger.error("ServiceAccount not deleted. [ServiceAccount: " + saName + "] [DELETE] Error: %s\n" % e)
 
-# def check_for_serviceaccount(apiInstance, saName, saNamespace):
-#     try:
-#         api_response = apiInstance.read_namespaced_service_account(name=saName, namespace=saNamespace)
-#         return True
-#     except ApiException as e:
-#         return False        
+def check_for_configmap(apiInstance, cmName, cmNamespace):
+    try:
+        api_response = apiInstance.read_namespaced_config_map(name=cmName, namespace=cmNamespace)
+        return True
+    except ApiException as e:
+        return False        
