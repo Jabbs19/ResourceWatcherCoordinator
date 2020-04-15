@@ -16,8 +16,8 @@ from .simpleclient import *
 from .rbac import *
 
 
+logger = logging.getLogger('main')
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
 
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument("--tester")
@@ -28,17 +28,9 @@ def main():
     
     authorizedClient = create_authorized_client()
 
+    #Pass these values in as part of Start Command.  Allows for upgrades.
     rwCRD = crd("jabbs19.com","v1","resourcewatchers","ResourceWatcher")
     rwCoordinator = coordinator(authorizedClient)
-
-
-    #Load Config.  Needs to pass kubeconfig location?
-
-    #print(str(rwCoordinator.customGroup))
-
-    # customAPI = create_api_client(rwCoordinator.customApiVersion,authorizedClient)
-    # deployAPI = create_api_client(rwCoordinator.deploymentApiVersion,authorizedClient)
-    # rwCoordinator.set_api_instance(customApiInstance=customAPI, deploymentApiInstance=deployAPI)
 
     args = PARSER.parse_args()
     print(str(args.tester))
@@ -54,7 +46,6 @@ def main():
         body = create_quick_clusterrolebinding_definition("mj-test-clusterrolebinding", "mj-test-clusterrole", "mj-test-sa", "resource-watcher-testnamespace")
         create_clusterrolebinding(authorizedClient, body)
     else:
-   
         #Primary CR/Operand Watcher
         cr_watcher = ThreadedWatcher(rwCoordinator.customEventFilter,rwCoordinator.customApiInstance.list_cluster_custom_object, 
                                                 rwCRD.customGroup, 
@@ -63,20 +54,17 @@ def main():
 
         #Primary deployed object Watcher
         deployment_watcher = ThreadedWatcher(rwCoordinator.deployEventFilter, rwCoordinator.deploymentApiInstance.list_deployment_for_all_namespaces)
-        
+
         #Secondary "Monitor" watchers.  Essentially, if Modified, redeploy entire application.
         serviceaccount_watcher = ThreadedWatcher(rwCoordinator.coreAPIfilter, rwCoordinator.coreAPI.list_service_account_for_all_namespaces)
         clusterrole_watcher = ThreadedWatcher(rwCoordinator.rbacAPIfilter, rwCoordinator.rbacAPI.list_cluster_role)
         clusterrolebinding_watcher = ThreadedWatcher(rwCoordinator.rbacAPIfilter, rwCoordinator.rbacAPI.list_cluster_role_binding)
 
 
-
-
-
         #Controller.  All "watchers" fed into Controller to process queues.
         controller = Controller(rwCRD, rwCoordinator, deployment_watcher, cr_watcher, serviceaccount_watcher, clusterrole_watcher, clusterrolebinding_watcher)
         controller.start()
-        
+   
         cr_watcher.start()
 
         deployment_watcher.start()
@@ -87,6 +75,7 @@ def main():
 
         try:
             controller.join()
+
         except (KeyboardInterrupt, SystemExit):
             print('\n! Received keyboard interrupt, quitting threads.\n')
             controller.stop()

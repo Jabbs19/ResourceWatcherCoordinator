@@ -16,9 +16,9 @@ def build_api_instance(authorizedClient):
 def create_quick_clusterrole_definition(clusterRoleName, rules, annotationsDict={}):
 
     crRules = client.V1PolicyRule(
-        api_groups=[""],
-        resources=[""],
-        verbs=[""]
+        api_groups=["*"],
+        resources=["*"],
+        verbs=["get","list", "create", "update", "delete", "deletecollection", "watch" ]
     )
     print("CR Rules: " + str(crRules))
     clusterRole = client.V1ClusterRole(

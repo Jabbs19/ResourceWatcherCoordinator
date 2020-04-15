@@ -24,17 +24,20 @@ spec:
                   type: string
                 k8sApiResourceName:
                   type: string
-                annotationFilterBoolean:
+                k8sAPIkwArgs:
                   type: string
-                annotationFilterString:
+                annotationFilterKey:
                   type: string  
-                status:
+                eventAction:
+                  type: string  
+                pathToCa:
+                  type: string  
+                jwtTokenValue:
                   type: string  
                 eventTypeFilter:
                   type: array
                   items:
                     type: string
-                
   scope: Cluster
   names:
     plural: resourcewatchers

@@ -4,6 +4,8 @@ import threading
 from kubernetes import watch
 
 logger = logging.getLogger('threadedwatch')
+logging.basicConfig(level=logging.INFO)
+
 
 
 class ThreadedWatcher(threading.Thread):
@@ -48,7 +50,7 @@ class ThreadedWatcher(threading.Thread):
             self.func, *self.func_args, **self.func_kwargs)
         for event in stream:
             for handler in self.handlers:
-                if str(event['type']) in self.filterObject['eventTypesList']:                    
+                if str(event['type']) in self.filterObject:                    
                     try:
                         handler(event)
                     except:
