@@ -137,9 +137,9 @@ class resourceWatcher():
     def _build_deployment_definition(self):
 
         customCodeVolume = client.V1Volume(
-            name=self.resourceWatcherName+"-custom-code",
+            name=self.configMapName,
             config_map=client.V1ConfigMapVolumeSource(
-                name="mj-custom-python"
+                name=self.configMapName
             )
         )
         # Configureate Pod template container
@@ -166,7 +166,7 @@ class resourceWatcher():
                 client.V1EnvVar(name='JWT_TOKEN',value=self.jwtTokenValue)    #Figure out later.
                 ],
             volume_mounts=[client.V1VolumeMount(
-                name=self.resourceWatcherName+"-custom-code",
+                name=self.configMapName,
                 mount_path= "/customcode"
                 )]
         )
@@ -330,7 +330,7 @@ def remove_finalizer(crdObject, rwCoordinatorObject, rwName):
                 }
     }
     try:
-        print("noFinalizerBody:" + str(noFinalizerBody))
+        # print("noFinalizerBody:" + str(noFinalizerBody))
         api_response = patch_custom_resource(rwCoordinatorObject.customApiInstance, crdObject.customGroup, crdObject.customVersion, crdObject.customPlural, rwName, noFinalizerBody)
     except ApiException as e:
         logger.error("Finalizer Not removed. [ResourceWatcherName: " + rwName + "] Error: %s\n" % e)
@@ -341,7 +341,7 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
 
     if eventObject.eventObjectType == 'ResourceWatcher':
     #Deploy All
-
+        #Onetime deploy of this?  This allows others to use it from here.
         cmBody = create_quick_configmap_definition(rwObject.configMapName, rwObject.deployNamespace,rwObject.annotationFilterFinalDict)
         create_config_map(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
 
