@@ -178,12 +178,6 @@ class resourceWatcher():
 
                                 )
                     )
-
-# # Create and configurate a spec section
-#         template = client.V1PodTemplateSpec(
-#             metadata=client.V1ObjectMeta(labels={"app": self.watcherApplicresourceWatcherNameationName}),
-#             spec=client.V1PodSpec(containers=[container]))            
-        # Create the specification of deployment
         spec = client.V1DeploymentSpec(
             replicas=1,
             template=template,
@@ -376,7 +370,7 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
         else:
             create_clusterrole(rwCoordinatorObject.rbacAPI,clusterroleBody)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
-                        "ClusterRole Updated")) 
+                        "ClusterRole Created")) 
                         
         crBindingBody = create_quick_clusterrolebinding_definition(rwObject.clusterRoleBindingName,rwObject.clusterRoleName,rwObject.serviceAccountName,rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_clusterrolebinding(rwCoordinatorObject.rbacAPI,rwObject.clusterRoleBindingName) == True:
@@ -386,7 +380,7 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
         else:
             create_clusterrolebinding(rwCoordinatorObject.rbacAPI,crBindingBody)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
-                        "ClusterRoleBinding Updated")) 
+                        "ClusterRoleBinding Created")) 
                                         
 
         deployBody = rwObject._build_deployment_definition()
@@ -398,7 +392,7 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
         else:
             create_deployment(rwCoordinatorObject.deploymentApiInstance, deployBody, rwObject.deployNamespace)
             logger.info("[ObjectType: %s] [ObjectName: %s] [Namespace: %s] [EventType: %s] [Message: %s]" % (eventObject.eventObjectType, eventObject.objectName, eventObject.objectNamespace, eventObject.eventType, 
-                        "Deployment Updated")) 
+                        "Deployment Created")) 
 
 
     
