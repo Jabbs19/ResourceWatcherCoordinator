@@ -38,13 +38,17 @@ def main():
     if args.tester == "serviceaccount":
         print("Test Mode (SA)")
         body = create_quick_sa_definition("mj-with-annotations", "resource-watcher-testnamespace", {"resourceWatcherParent":"resource-watcher-serviceb"})
-        create_serviceaccount(authorizedClient, body, "resource-watcher-testnamespace")
+        create_serviceaccount(rwCoordinator.coreAPI, body, "resource-watcher-testnamespace")
     elif args.tester == "clusterrole":
         body = create_quick_clusterrole_definition("mj-test-clusterrole","blahblah")
-        create_clusterrole(authorizedClient, body)
+        create_clusterrole(rwCoordinator.coreAPI, body)
     elif args.tester == "clusterrolebinding":
         body = create_quick_clusterrolebinding_definition("mj-test-clusterrolebinding", "mj-test-clusterrole", "mj-test-sa", "resource-watcher-testnamespace")
-        create_clusterrolebinding(authorizedClient, body)
+        create_clusterrolebinding(rwCoordinator.coreAPI, body)
+    elif args.tester == "configmap":
+        cmBody = create_quick_configmap_definition('mj-test', "resource-watcher-testnamespace",{"resourceWatcherParent":"resource-watcher-serviceb"})
+        create_config_map(rwCoordinator.coreAPI,cmBody, "resource-watcher-testnamespace")
+
     else:
         #Primary CR/Operand Watcher
         cr_watcher = ThreadedWatcher(rwCoordinator.customEventFilter,rwCoordinator.customApiInstance.list_cluster_custom_object, 

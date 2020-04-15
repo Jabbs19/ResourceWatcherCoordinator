@@ -127,6 +127,7 @@ class resourceWatcher():
         self.serviceAccountName = self.resourceWatcherName + '-sa'
         self.clusterRoleName = self.resourceWatcherName + '-clusterrole'
         self.clusterRoleBindingName = self.resourceWatcherName + '-clusterrolebinding'
+        self.configMapName =  self.resourceWatcherName + '-custom-code'
 
     #Auto Generate
         self.parentAnnotationFilterKey = parentAnnotationFilterKey
@@ -340,6 +341,10 @@ def process_added_event(eventObject, crdObject, rwCoordinatorObject, rwObject, *
 
     if eventObject.eventObjectType == 'ResourceWatcher':
     #Deploy All
+
+        cmBody = create_quick_configmap_definition(rwObject.configMapName, rwObject.deployNamespace,rwObject.annotationFilterFinalDict)
+        create_config_map(rwCoordinatorObject.coreAPI,cmBody,rwObject.deployNamespace)
+
         saBody = create_quick_sa_definition(rwObject.serviceAccountName, rwObject.deployNamespace, rwObject.annotationFilterFinalDict)
         if check_for_serviceaccount(rwCoordinatorObject.coreAPI,rwObject.serviceAccountName,rwObject.deployNamespace) == True:
             update_serviceaccount(rwCoordinatorObject.coreAPI, rwObject.serviceAccountName,rwObject.deployNamespace, saBody)
